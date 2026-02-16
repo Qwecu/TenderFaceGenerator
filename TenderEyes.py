@@ -75,7 +75,7 @@ class MinimalEyeGenome:
 
     def __init__(self):
         # Luo genomin kahdella kromosomilla
-        self.genome = Genome(num_genes=40)
+        self.genome = Genome(num_genes=120)
         # 4 Δy ylä
         # 4 Δy ala
         # 16 Δx
@@ -237,7 +237,9 @@ class MinimalEyeGenome:
 
         # Iiriksen y-koordinaatti segmenttien keskeltä
         iris_center_x = sum(dx_list[:2])
-        iris_center_y = (BASE_Y + BASE_Y + upper_dy[1] + lower_dy[1]) / 2
+        iris_center_y = (BASE_Y + BASE_Y + upper_dy[2] + lower_dy[2]) / 2
+
+        r, g, b = self.genome.get_iris_color()
 
         return f"""
 <defs>
@@ -250,7 +252,7 @@ class MinimalEyeGenome:
 <circle cx="{iris_center_x:.2f}"
         cy="{iris_center_y:.2f}"
         r="{IRIS_RADIUS}"
-        fill="#88aaff"
+        fill="rgb({r},{g},{b})"
         clip-path="url(#{clip_id})"/>
 
 <circle cx="{iris_center_x:.2f}"

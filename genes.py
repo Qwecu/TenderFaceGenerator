@@ -16,12 +16,20 @@ class Genome:
         """
         Luo kaksi kromosomia satunnaisilla geeneillä.
         """
-        self.chromosome1 = [(random.randint(0, 255), random.randint(0, 255)) for _ in range(num_genes)]
-        self.chromosome2 = [(random.randint(0, 255), random.randint(0, 255)) for _ in range(num_genes)]
+        self.chromosome1 = [
+            (random.randint(0, 255), random.randint(0, 255))
+            for _ in range(num_genes)
+        ]
+
+        self.chromosome2 = [
+            (random.randint(0, 255), random.randint(0, 255))
+            for _ in range(num_genes)
+        ]
+
         self.num_genes = num_genes
 
     # =====================================================
-    # GETTERIT
+    # PERUS GETTER
     # =====================================================
 
     def get_gene(self, index):
@@ -63,8 +71,7 @@ class Genome:
         """
         idx = segment * 4 + gene_index + 8
         return self.get_gene(idx)
-
-    # -----------------------------------------------------
+# -----------------------------------------------------
     # SEGMENTTITYYPPI (PAINOTETTU, EI SATUNNAINEN)
     # -----------------------------------------------------
 
@@ -115,10 +122,30 @@ class Genome:
 
     def get_tension(self, segment, upper=True):
         """
-        Palauttaa jännitysarvon segmentille [-1, 1].
+        Palauttaa jännitysarvon [-1, 1].
         """
-        # Gene indeksit 32–35 = ylä jännitys
-        # Gene indeksit 36–39 = ala jännitys
         base_idx = 32 if upper else 36
         val = self.get_gene(base_idx + segment)
+
         return (val / 127.5) - 1.0  # skaalataan 0-255 -> -1..1
+
+
+    # -----------------------------------------------------
+    # IIRIKSEN VÄRIGEENIT
+    # -----------------------------------------------------
+
+    def get_iris_color(self):
+        """
+        Palauttaa iiriksen värin RGB-triplena.
+        Kukin kanava kahden geenin keskiarvona.
+        """
+
+        # 40–41 = R
+        # 42–43 = G
+        # 44–45 = B
+
+        r = (self.get_gene(40) + self.get_gene(41)) // 2
+        g = (self.get_gene(42) + self.get_gene(43)) // 2
+        b = (self.get_gene(44) + self.get_gene(45)) // 2
+
+        return (r, g, b)
