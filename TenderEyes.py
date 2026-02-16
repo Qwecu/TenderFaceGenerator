@@ -1,4 +1,4 @@
-import random
+from genes import Genome
 
 # =====================================================
 # GLOBAALIT PARAMETRIT
@@ -68,52 +68,33 @@ LOWER_DY_RANGES = [
 
 
 # =====================================================
-# APUFUNKTIOT
-# =====================================================
-
-def rand_gene():
-    # 8-bittinen geeni (0–255)
-    return random.randint(0, 255)
-
-def weighted_segment_type():
-    # Palauttaa segmenttityypin globaalien painojen perusteella
-    return random.choices(SEGMENT_TYPES, weights=SEGMENT_WEIGHTS, k=1)[0]
-
-def rand_tension():
-    # Jännitysarvo väliltä [-1, 1]
-    return random.uniform(-1.0, 1.0)
-
-
-# =====================================================
-# GENOMI
+# MINIMAALINEN SILMÄ
 # =====================================================
 
 class MinimalEyeGenome:
 
     def __init__(self):
-        # 4 segmenttiä × 4 geeniä per segmentti (Δx)
-        # Fenotyyppi = geenien keskiarvo
-        self.width_genes = [[rand_gene() for _ in range(4)] for _ in range(4)]
-
-        # Δy-geenit (relatiiviset muutokset segmenttikohtaisesti)
-        self.upper_y_genes = [rand_gene() for _ in range(4)]
-        self.lower_y_genes = [rand_gene() for _ in range(4)]
-
-        # Segmenttityypit arvotaan painotetusti
-        self.upper_seg_type = [weighted_segment_type() for _ in range(4)]
-        self.lower_seg_type = [weighted_segment_type() for _ in range(4)]
-
-        # Bezier-jännitykset segmenttikohtaisesti
-        self.upper_tension = [rand_tension() for _ in range(4)]
-        self.lower_tension = [rand_tension() for _ in range(4)]
+        # Luo genomin kahdella kromosomilla
+        self.genome = Genome(num_genes=40)
+        # 4 Δy ylä
+        # 4 Δy ala
+        # 16 Δx
+        # 4 ylä segmenttityypit
+        # 4 ala segmenttityypit
+        # 4 ylä tension
+        # 4 ala tension
 
     # =====================================================
     # ΔX
     # =====================================================
 
     def compute_dx(self):
+        raw = []
+
         # Keskiarvo neljästä geenistä per segmentti
-        raw = [max(1, sum(self.width_genes[i]) / 4) for i in range(4)]
+        for seg in range(4):
+            vals = [self.genome.get_width_gene(seg, i) for i in range(4)]
+            raw.append(max(1, sum(vals) / 4))
 
         # Skaalataan niin, että segmenttien summa = EYE_WIDTH
         scale = EYE_WIDTH / sum(raw)
@@ -124,24 +105,27 @@ class MinimalEyeGenome:
     # =====================================================
 
     def compute_dy(self):
+
         upper = []
         lower = []
 
         # --- YLÄLUOMI ---
         for i in range(4):
-            norm = self.upper_y_genes[i] / 255
+            norm = self.genome.get_upper_y_gene(i) / 255
             mn, mx = UPPER_DY_RANGES[i]
             upper.append(mn + norm * (mx - mn))
 
         # --- ALALUOMI ---
         for i in range(4):
-            norm = self.lower_y_genes[i] / 255
+            norm = self.genome.get_lower_y_gene(i) / 255
             mn, mx = LOWER_DY_RANGES[i]
             lower.append(mn + norm * (mx - mn))
 
         # Oikean kulman vakiointi:
-        # jaetaan ylä- ja alaluomen päätepisteiden erotus
-        # kahdelle viimeiselle alaluomen segmentille (1/3 + 2/3)
+        # jaa erotus kolmelle ja laita
+        # kaksi kolmasosaa viimeiselle ala-p:lle
+        # yksi kolmasosa toiseksi viimeiselle
+
         diff = sum(lower) - sum(upper)
         lower[-2] -= diff / 3
         lower[-1] -= 2 * diff / 3
@@ -202,14 +186,45 @@ class MinimalEyeGenome:
         dx_list = self.compute_dx()
         upper_dy, lower_dy = self.compute_dy()
 
+        # Segmenttityypit ja jännitykset geeneistä
+        upper_seg_type = [
+            self.genome.get_segment_type(
+                i,
+                SEGMENT_TYPES,
+                SEGMENT_WEIGHTS,
+                upper=True
+            )
+            for i in range(4)
+        ]
+
+        lower_seg_type = [
+            self.genome.get_segment_type(
+                i,
+                SEGMENT_TYPES,
+                SEGMENT_WEIGHTS,
+                upper=False
+            )
+            for i in range(4)
+        ]
+
+        upper_tension = [
+            self.genome.get_tension(i, upper=True)
+            for i in range(4)
+        ]
+
+        lower_tension = [
+            self.genome.get_tension(i, upper=False)
+            for i in range(4)
+        ]
+
         upper_path = self.build_path(
             dx_list, upper_dy,
-            self.upper_seg_type, self.upper_tension
+            upper_seg_type, upper_tension
         )
 
         lower_path = self.build_path(
             dx_list, lower_dy,
-            self.lower_seg_type, self.lower_tension
+            lower_seg_type, lower_tension
         )
 
         fold_offset = EYE_WIDTH * FOLD_RATIO
@@ -217,18 +232,12 @@ class MinimalEyeGenome:
 
         fold_path = self.build_path(
             dx_list, fold_dy,
-            self.upper_seg_type, self.upper_tension
+            upper_seg_type, upper_tension
         )
 
-        # -------------------------------------------------
-        # IIRIS JA PUPILLI Y-KOORDINAATTI
-        # -------------------------------------------------
-        # Lasketaan kahden ensimmäisen segmentin perusteella
-        # ylä- ja alaluomen Δy-summat, ja keskipiste niiden välille
-        upper_sum = sum(upper_dy[:2])
-        lower_sum = sum(lower_dy[:2])
-        iris_center_x = sum(dx_list) / 2
-        iris_center_y = BASE_Y + (upper_sum + lower_sum) / 2
+        # Iiriksen y-koordinaatti segmenttien keskeltä
+        iris_center_x = sum(dx_list[:2])
+        iris_center_y = (BASE_Y + BASE_Y + upper_dy[1] + lower_dy[1]) / 2
 
         return f"""
 <defs>
