@@ -1,5 +1,7 @@
 from genes import Genome
 
+import math
+
 # =====================================================
 # GLOBAALIT PARAMETRIT
 # =====================================================
@@ -177,7 +179,47 @@ class MinimalEyeGenome:
 
         return d
 
-    # -------------------------------------------------
+    # =====================================================
+    # VÄRIN MUUNNOS
+    # =====================================================
+
+    def lighten(self, color, factor=0.45):
+        """
+        Vaaleampi versio väristä.
+        """
+        r, g, b = color
+        return (
+            int(r + (255 - r) * factor),
+            int(g + (255 - g) * factor),
+            int(b + (255 - b) * factor),
+        )
+
+    # =====================================================
+    # IIRIKSEN POLYGONI
+    # =====================================================
+
+    def build_iris_polygon(self, cx, cy, radius, color):
+
+        """
+        Luo vaalea monikulmio iiriksen sisälle.
+        """
+
+        points = []
+        sides = 12
+        poly_radius = radius * 0.55
+
+        for i in range(sides):
+            angle = 2 * math.pi * i / sides
+            x = cx + poly_radius * math.cos(angle)
+            y = cy + poly_radius * math.sin(angle)
+            points.append(f"{x:.2f},{y:.2f}")
+
+        return f"""
+<polygon points="{' '.join(points)}"
+         fill="rgb{color}"/>
+"""
+
+   # -------------------------------------------------
     # PALAUTTAA VAIN GROUPIN SISÄLLÖN
     # -------------------------------------------------
 
@@ -235,11 +277,19 @@ class MinimalEyeGenome:
             upper_seg_type, upper_tension
         )
 
-        # Iiriksen y-koordinaatti segmenttien keskeltä
+        # Iiriksen keskipiste
         iris_center_x = sum(dx_list[:2])
         iris_center_y = (BASE_Y + BASE_Y + upper_dy[2] + lower_dy[2]) / 2
 
-        r, g, b = self.genome.get_iris_color()
+        base_color = self.genome.get_iris_color()
+        highlight_color = self.lighten(base_color)
+
+        iris_polygon = self.build_iris_polygon(
+            iris_center_x,
+            iris_center_y,
+            IRIS_RADIUS,
+            highlight_color
+        )
 
         return f"""
 <defs>
@@ -252,8 +302,10 @@ class MinimalEyeGenome:
 <circle cx="{iris_center_x:.2f}"
         cy="{iris_center_y:.2f}"
         r="{IRIS_RADIUS}"
-        fill="rgb({r},{g},{b})"
+        fill="rgb{base_color}"
         clip-path="url(#{clip_id})"/>
+
+{iris_polygon.replace('<polygon ', f'<polygon clip-path="url(#{clip_id})" ')}
 
 <circle cx="{iris_center_x:.2f}"
         cy="{iris_center_y:.2f}"
@@ -265,7 +317,6 @@ class MinimalEyeGenome:
 <path d="{fold_path}" fill="none" stroke="black"/>
 <path d="{lower_path}" fill="none" stroke="black"/>
 """
-
 
 # =====================================================
 # 4x4 GRID
