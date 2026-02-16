@@ -4,7 +4,7 @@ import random
 # GLOBAALIT PARAMETRIT
 # =====================================================
 
-EYE_WIDTH = 100      
+EYE_WIDTH = 140      
 # Silmän kokonaisleveys pikseleinä.
 # Δx-segmentit skaalataan niin, että niiden summa on tämä arvo.
 
@@ -21,10 +21,10 @@ TENSION_RATIO = 0.25
 # Määrittää kuinka voimakkaasti Bezier-kontrollipiste
 # voi poiketa suorasta linjasta.
 
-IRIS_RADIUS = 22     
+IRIS_RADIUS = 36    
 # Iiriksen säde pikseleinä.
 
-PUPIL_RADIUS = 10    
+PUPIL_RADIUS = 16    
 # Pupillin säde pikseleinä.
 
 
@@ -52,18 +52,19 @@ SEGMENT_WEIGHTS = list(SEGMENT_TYPE_WEIGHTS.values())
 # Jokainen arvo on RELATIIVINEN y-muutos (Δy) kyseiselle segmentille.
 # Arvot määrittelevät biologisen "liikealueen" segmenttikohtaisesti.
 
+
 UPPER_DY_RANGES = [
-    (-21, -12),  # p0 -> p1: yläluomi nousee selvästi
-    (-7, 5),     # p1 -> p2: melko tasainen
-    (-5, 10),    # p2 -> p3: voi hieman nousta
-    (-8, 15)     # p3 -> p4: loppuosa, usein laskee
+    (-41, -23),
+    (-14, 10),
+    (-10, 20),
+    (-16, 30)
 ]
 
 LOWER_DY_RANGES = [
-    (5, 12),     # p0 -> p1: alaluomi laskee
-    (-2, 6),     # p1 -> p2: tasaisempi
-    (-3, 5),     # p2 -> p3: pieni nousu mahdollinen
-    (2, 8)       # p3 -> p4: loppuosa
+    (10, 24),
+    (-4, 12),
+    (-6, 16),
+    (4, 16)
 ]
 
 
@@ -157,9 +158,8 @@ class MinimalEyeGenome:
         # Lähtöpiste absoluuttisesti (m), sen jälkeen kaikki relatiivista
         d = f"m 0 {BASE_Y:.2f} "
 
-        prev_type = None
-
         for i in range(4):
+
             dx = dx_list[i]
             dy = dy_list[i]
             t = seg_types[i]
@@ -192,15 +192,13 @@ class MinimalEyeGenome:
             elif t == "t":
                 d += f"t {dx:.2f} {dy:.2f} "
 
-            prev_type = t
-
         return d
 
-    # =====================================================
-    # SVG
-    # =====================================================
+    # -------------------------------------------------
+    # PALAUTTAA VAIN GROUPIN SISÄLLÖN
+    # -------------------------------------------------
 
-    def generate_svg(self):
+    def generate_group(self, clip_id):
 
         dx_list = self.compute_dx()
         upper_dy, lower_dy = self.compute_dy()
@@ -226,35 +224,70 @@ class MinimalEyeGenome:
         iris_center_x = sum(dx_list) / 2
         iris_center_y = BASE_Y
 
-        svg = f"""
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140">
+        return f"""
+<defs>
+  <clipPath id="{clip_id}" clipPathUnits="userSpaceOnUse">
+    <path d="{upper_path} l 0 1" />
+    <path d="{lower_path} l 0 -1" />
+  </clipPath>
+</defs>
 
-  <defs>
-    <clipPath id="eyeClip" clipPathUnits="userSpaceOnUse">
-      <path d="{upper_path} l 0 1" />
-      <path d="{lower_path} l 0 -1" />
-    </clipPath>
-  </defs>
+<circle cx="{iris_center_x:.2f}"
+        cy="{iris_center_y:.2f}"
+        r="{IRIS_RADIUS}"
+        fill="#88aaff"
+        clip-path="url(#{clip_id})"/>
 
-  <circle cx="{iris_center_x:.2f}"
-          cy="{iris_center_y:.2f}"
-          r="{IRIS_RADIUS}"
-          fill="#88aaff"
-          clip-path="url(#eyeClip)"/>
+<circle cx="{iris_center_x:.2f}"
+        cy="{iris_center_y:.2f}"
+        r="{PUPIL_RADIUS}"
+        fill="black"
+        clip-path="url(#{clip_id})"/>
 
-  <circle cx="{iris_center_x:.2f}"
-          cy="{iris_center_y:.2f}"
-          r="{PUPIL_RADIUS}"
-          fill="black"
-          clip-path="url(#eyeClip)"/>
+<path d="{upper_path}" fill="none" stroke="black"/>
+<path d="{fold_path}" fill="none" stroke="black"/>
+<path d="{lower_path}" fill="none" stroke="black"/>
+"""
 
-  <path d="{upper_path}" fill="none" stroke="black"/>
-  <path d="{fold_path}" fill="none" stroke="black"/>
-  <path d="{lower_path}" fill="none" stroke="black"/>
 
+# =====================================================
+# 4x4 GRID
+# =====================================================
+
+def generate_eye_grid():
+
+    COLS = 4
+    ROWS = 4
+
+    CELL_WIDTH = 200
+    CELL_HEIGHT = 100
+
+    total_width = COLS * CELL_WIDTH
+    total_height = ROWS * CELL_HEIGHT
+
+    svg_content = ""
+
+    for row in range(ROWS):
+        for col in range(COLS):
+
+            eye = MinimalEyeGenome()
+            clip_id = f"eyeClip_{row}_{col}"
+
+            tx = col * CELL_WIDTH
+            ty = row * CELL_HEIGHT
+
+            svg_content += f"""
+<g transform="translate({tx},{ty})">
+{eye.generate_group(clip_id)}
+</g>
+"""
+
+    return f"""
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 {total_width} {total_height}">
+{svg_content}
 </svg>
 """
-        return svg
 
 
 # =====================================================
@@ -262,10 +295,10 @@ class MinimalEyeGenome:
 # =====================================================
 
 if __name__ == "__main__":
-    eye = MinimalEyeGenome()
-    svg_output = eye.generate_svg()
 
-    with open("genetic_eye.svg", "w") as f:
+    svg_output = generate_eye_grid()
+
+    with open("genetic_eye_grid.svg", "w") as f:
         f.write(svg_output)
 
-    print("SVG created: genetic_eye.svg")
+    print("SVG created: genetic_eye_grid.svg")
