@@ -12,13 +12,28 @@ TENSION_RATIO = 0.25
 IRIS_RADIUS = 22
 PUPIL_RADIUS = 10
 
+# -----------------------------------------------------
+# SEGMENTTITYYPPIEN TODENNÄKÖISYYDET
+# -----------------------------------------------------
+
+SEGMENT_TYPE_WEIGHTS = {
+    "l": 0.25,
+    "c": 0.35,
+    "q": 0.20,
+    "s": 0.10,
+    "t": 0.10
+}
+
+SEGMENT_TYPES = list(SEGMENT_TYPE_WEIGHTS.keys())
+SEGMENT_WEIGHTS = list(SEGMENT_TYPE_WEIGHTS.values())
+
 # =====================================================
-# DELTA-Y RANGET (RELATIIVISET MUUTOKSET, px)
+# DELTA-Y RANGET
 # =====================================================
 
 UPPER_DY_RANGES = [
-    (-20, -12),
-    (-5, 5),
+    (-21, -12),
+    (-7, 5),
     (-5, 10),
     (-8, 15)
 ]
@@ -37,8 +52,8 @@ LOWER_DY_RANGES = [
 def rand_gene():
     return random.randint(0, 255)
 
-def rand_bool():
-    return random.randint(0, 1)
+def weighted_segment_type():
+    return random.choices(SEGMENT_TYPES, weights=SEGMENT_WEIGHTS, k=1)[0]
 
 def rand_tension():
     return random.uniform(-1.0, 1.0)
@@ -54,8 +69,8 @@ class MinimalEyeGenome:
         self.upper_y_genes = [rand_gene() for _ in range(4)]
         self.lower_y_genes = [rand_gene() for _ in range(4)]
 
-        self.upper_seg_type = [rand_bool() for _ in range(4)]
-        self.lower_seg_type = [rand_bool() for _ in range(4)]
+        self.upper_seg_type = [weighted_segment_type() for _ in range(4)]
+        self.lower_seg_type = [weighted_segment_type() for _ in range(4)]
 
         self.upper_tension = [rand_tension() for _ in range(4)]
         self.lower_tension = [rand_tension() for _ in range(4)]
@@ -86,7 +101,6 @@ class MinimalEyeGenome:
             norm = self.lower_y_genes[i] / 255
             mn, mx = LOWER_DY_RANGES[i]
             lower.append(mn + norm * (mx - mn))
-
         # Oikean kulman vakiointi
         diff = sum(lower) - sum(upper)
         lower[-2] -= diff / 3
@@ -95,25 +109,50 @@ class MinimalEyeGenome:
         return upper, lower
 
     # =====================================================
-    # PATH RAKENNUS (relatiivinen)
+    # PATH RAKENNUS
     # =====================================================
 
     def build_path(self, dx_list, dy_list, seg_types, tensions):
+
         d = f"m 0 {BASE_Y:.2f} "
+
+        prev_type = None
 
         for i in range(4):
             dx = dx_list[i]
             dy = dy_list[i]
+            t = seg_types[i]
+            tension = tensions[i]
 
-            if seg_types[i] == 0:
+            ctrl_offset = tension * dx * TENSION_RATIO
+
+            # ---------------------------------
+            if t == "l":
                 d += f"l {dx:.2f} {dy:.2f} "
-            else:
-                tension_offset = tensions[i] * dx * TENSION_RATIO
+
+            elif t == "c":
                 d += (
-                    f"c {dx*0.25:.2f} {dy*0.25 + tension_offset:.2f} "
-                    f"{dx*0.75:.2f} {dy*0.75 + tension_offset:.2f} "
+                    f"c {dx*0.25:.2f} {dy*0.25 + ctrl_offset:.2f} "
+                    f"{dx*0.75:.2f} {dy*0.75 + ctrl_offset:.2f} "
                     f"{dx:.2f} {dy:.2f} "
                 )
+
+            elif t == "q":
+                d += (
+                    f"q {dx*0.5:.2f} {dy*0.5 + ctrl_offset:.2f} "
+                    f"{dx:.2f} {dy:.2f} "
+                )
+
+            elif t == "s":
+                d += (
+                    f"s {dx*0.75:.2f} {dy*0.75 + ctrl_offset:.2f} "
+                    f"{dx:.2f} {dy:.2f} "
+                )
+
+            elif t == "t":
+                d += f"t {dx:.2f} {dy:.2f} "
+
+            prev_type = t
 
         return d
 
@@ -157,27 +196,20 @@ class MinimalEyeGenome:
     </clipPath>
   </defs>
 
-  <!-- IIRIS -->
   <circle cx="{iris_center_x:.2f}"
           cy="{iris_center_y:.2f}"
           r="{IRIS_RADIUS}"
           fill="#88aaff"
           clip-path="url(#eyeClip)"/>
 
-  <!-- PUPILLI -->
   <circle cx="{iris_center_x:.2f}"
           cy="{iris_center_y:.2f}"
           r="{PUPIL_RADIUS}"
           fill="black"
           clip-path="url(#eyeClip)"/>
 
-  <!-- YLÄLUOMI -->
   <path d="{upper_path}" fill="none" stroke="black"/>
-
-  <!-- LUOMIRAKO -->
   <path d="{fold_path}" fill="none" stroke="black"/>
-
-  <!-- ALALUOMI -->
   <path d="{lower_path}" fill="none" stroke="black"/>
 
 </svg>
