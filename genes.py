@@ -161,3 +161,40 @@ class Genome:
 
     def get_iris_highlight_multiplier(self):
         return self.get_gene(52) / 255.0
+    
+    # -----------------------------------------------------
+    # IHON VÄRI (HSV-MALLI)
+    # -----------------------------------------------------
+
+    def get_skin_color(self):
+        SKIN_PALETTE = [
+        (145, 75, 50),   # tummanruskea
+        (182, 107, 62),  # keskiruskea
+        (195, 124, 77), # vaalea ruskea
+        (210, 153, 108), # hyvin vaalea ruskea
+        (245, 204, 171)  # lähes vaalea
+        ]
+
+
+        """
+        Palauttaa RGB-triplen liukuvasti SKIN_PALETTE:n sisällä.
+        """
+        gene_value = 1 - (self.get_gene(53) / 255) * (self.get_gene(54) / 255)
+        t = gene_value  * (len(SKIN_PALETTE) - 1)
+
+        # Lasketaan ala- ja yläindeksi
+        idx0 = int(t)
+        idx1 = min(idx0 + 1, len(SKIN_PALETTE) - 1)
+        f = t - idx0  # välinen liuku
+
+        r0, g0, b0 = SKIN_PALETTE[idx0]
+        r1, g1, b1 = SKIN_PALETTE[idx1]
+
+        # Lineaarinen interpolaatio
+        r = int(r0 + (r1 - r0) * f)
+        g = int(g0 + (g1 - g0) * f)
+        b = int(b0 + (b1 - b0) * f)
+
+        return (r, g, b)
+
+
