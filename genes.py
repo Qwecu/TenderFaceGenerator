@@ -137,7 +137,7 @@ class Genome:
     def get_iris_color(self):
         """
         Palauttaa iiriksen värin RGB-triplena.
-        Kukin kanava kahden geenin keskiarvona.
+        Kukin kanava neljän geenin keskiarvona.
         """
 
 
@@ -146,3 +146,18 @@ class Genome:
         b = (self.get_gene(48) + self.get_gene(49)  + self.get_gene(50) + self.get_gene(51)) // 4
 
         return (r, g, b)
+    
+    def get_iris_highlight_color(self):
+        """
+        Palauttaa iiriksen värin RGB-triplena.
+        Kukin kanava kolmen geenin keskiarvona.
+        """
+
+        r = (self.get_gene(40) + self.get_gene(41)  + self.get_gene(42)) // 3
+        g = (self.get_gene(44) + self.get_gene(45)  + self.get_gene(46)) // 3
+        b = (self.get_gene(48) + self.get_gene(49)  + self.get_gene(50)) // 3
+
+        return (r, g, b)
+
+    def get_iris_highlight_multiplier(self):
+        return self.get_gene(52) / 255.0

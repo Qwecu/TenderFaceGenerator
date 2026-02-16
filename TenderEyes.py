@@ -206,7 +206,7 @@ class MinimalEyeGenome:
 
         points = []
         sides = 12
-        poly_radius = radius * 0.55
+        poly_radius = radius * (0.55 + 0.15 * self.genome.get_iris_highlight_multiplier())
 
         for i in range(sides):
             angle = 2 * math.pi * i / sides
@@ -282,7 +282,7 @@ class MinimalEyeGenome:
         iris_center_y = (BASE_Y + BASE_Y + upper_dy[2] + lower_dy[2]) / 2
 
         base_color = self.genome.get_iris_color()
-        highlight_color = self.lighten(base_color)
+        highlight_color = self.genome.get_iris_highlight_color()
 
         iris_polygon = self.build_iris_polygon(
             iris_center_x,
