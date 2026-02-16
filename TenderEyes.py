@@ -52,7 +52,6 @@ SEGMENT_WEIGHTS = list(SEGMENT_TYPE_WEIGHTS.values())
 # Jokainen arvo on RELATIIVINEN y-muutos (Δy) kyseiselle segmentille.
 # Arvot määrittelevät biologisen "liikealueen" segmenttikohtaisesti.
 
-
 UPPER_DY_RANGES = [
     (-41, -23),
     (-14, 10),
@@ -221,8 +220,15 @@ class MinimalEyeGenome:
             self.upper_seg_type, self.upper_tension
         )
 
+        # -------------------------------------------------
+        # IIRIS JA PUPILLI Y-KOORDINAATTI
+        # -------------------------------------------------
+        # Lasketaan kahden ensimmäisen segmentin perusteella
+        # ylä- ja alaluomen Δy-summat, ja keskipiste niiden välille
+        upper_sum = sum(upper_dy[:2])
+        lower_sum = sum(lower_dy[:2])
         iris_center_x = sum(dx_list) / 2
-        iris_center_y = BASE_Y
+        iris_center_y = BASE_Y + (upper_sum + lower_sum) / 2
 
         return f"""
 <defs>
