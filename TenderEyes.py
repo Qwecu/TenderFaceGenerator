@@ -279,7 +279,7 @@ class MinimalEyeGenome:
 
         # Iiriksen keskipiste
         iris_center_x = sum(dx_list[:2])
-        iris_center_y = (BASE_Y + BASE_Y + upper_dy[2] + lower_dy[2]) / 2
+        iris_center_y = BASE_Y + (sum(upper_dy[0:3]) + sum(lower_dy[0:3])) / 2
 
         base_color = self.genome.get_iris_color()
         highlight_color = self.genome.get_iris_highlight_color()
