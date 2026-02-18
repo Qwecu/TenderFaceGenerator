@@ -15,10 +15,10 @@ SVG_HEIGHT = ROWS * CELL_HEIGHT
 
 
 # =====================================================
-# YHDEN PÄÄN PIIRTO (RELATIIVINEN PATH)
+# YHDEN PÄÄN PIIRTO
 # =====================================================
 
-def generate_head_group(offset_x, offset_y):
+def generate_head_group(offset_x, offset_y, show_points):
 
     # -------------------------------------------------
     # PERUSMITAT
@@ -34,7 +34,7 @@ def generate_head_group(offset_x, offset_y):
     HALF_WIDTH = HEAD_WIDTH / 2
 
     # -------------------------------------------------
-    # TUKIPISTEET (ABSOLUUTTISET LASKENTAA VARTEN)
+    # TUKIPISTEET
     # -------------------------------------------------
 
     top_x = CENTER_X
@@ -60,14 +60,12 @@ def generate_head_group(offset_x, offset_y):
     chin_side_right_x = CENTER_X + chin_side_offset
 
     # -------------------------------------------------
-    # RELATIIVISET DELTAT (OIKEA PUOLI)
+    # RELATIIVISET DELTAT (OIKEA)
     # -------------------------------------------------
 
-    # m top
     m_x = top_x
     m_y = top_y
 
-    # c otsa → korva ylä
     c1_dx = HALF_WIDTH * 0.5
     c1_dy = 0
 
@@ -77,24 +75,20 @@ def generate_head_group(offset_x, offset_y):
     end1_dx = ear_right_x - top_x
     end1_dy = ear_top_y - top_y
 
-    # l korva alas
     l1_dx = 0
     l1_dy = ear_bottom_y - ear_top_y
 
-    # l leukareuna
     l2_dx = jaw_right_x - ear_right_x
     l2_dy = jaw_y - ear_bottom_y
 
-    # l leuan sivu
     l3_dx = chin_side_right_x - jaw_right_x
     l3_dy = chin_side_y - jaw_y
 
-    # l leuankärki
     l4_dx = chin_x - chin_side_right_x
     l4_dy = chin_y - chin_side_y
 
     # -------------------------------------------------
-    # VASEN PUOLI (RELATIIVISET)
+    # RELATIIVISET DELTAT (VASEN)
     # -------------------------------------------------
 
     c1_dx_l = -HALF_WIDTH * 0.5
@@ -111,37 +105,12 @@ def generate_head_group(offset_x, offset_y):
     l4_dx_l = chin_x - chin_side_left_x
 
     # -------------------------------------------------
-    # SVG GROUP
+    # TUKIPISTEET SVG (OPTIONAALINEN)
     # -------------------------------------------------
 
-    group = f"""
-<g transform="translate({offset_x},{offset_y})">
-
-    <!-- OIKEA REUNA -->
-    <path d="
-        m {m_x} {m_y}
-        c {c1_dx} {c1_dy}
-          {c2_dx} {c2_dy}
-          {end1_dx} {end1_dy}
-        l {l1_dx} {l1_dy}
-        l {l2_dx} {l2_dy}
-        l {l3_dx} {l3_dy}
-        l {l4_dx} {l4_dy}
-    " stroke="black" fill="transparent"/>
-
-    <!-- VASEN REUNA -->
-    <path d="
-        m {m_x} {m_y}
-        c {c1_dx_l} {c1_dy_l}
-          {c2_dx_l} {c2_dy_l}
-          {end1_dx_l} {end1_dy_l}
-        l {l1_dx} {l1_dy}
-        l {l2_dx_l} {l2_dy}
-        l {l3_dx_l} {l3_dy}
-        l {l4_dx_l} {l4_dy}
-    " stroke="black" fill="transparent"/>
-
-    <!-- TUKIPISTEET -->
+    points_svg = ""
+    if show_points:
+        points_svg = f"""
     <circle cx="{top_x}" cy="{top_y}" r="3" fill="red"/>
     <circle cx="{chin_x}" cy="{chin_y}" r="3" fill="red"/>
 
@@ -156,17 +125,48 @@ def generate_head_group(offset_x, offset_y):
 
     <circle cx="{chin_side_left_x}" cy="{chin_side_y}" r="3" fill="red"/>
     <circle cx="{chin_side_right_x}" cy="{chin_side_y}" r="3" fill="red"/>
+"""
+
+    # -------------------------------------------------
+    # GROUP
+    # -------------------------------------------------
+
+    return f"""
+<g transform="translate({offset_x},{offset_y})">
+
+    <path d="
+        m {m_x} {m_y}
+        c {c1_dx} {c1_dy}
+          {c2_dx} {c2_dy}
+          {end1_dx} {end1_dy}
+        l {l1_dx} {l1_dy}
+        l {l2_dx} {l2_dy}
+        l {l3_dx} {l3_dy}
+        l {l4_dx} {l4_dy}
+    " stroke="black" fill="transparent"/>
+
+    <path d="
+        m {m_x} {m_y}
+        c {c1_dx_l} {c1_dy_l}
+          {c2_dx_l} {c2_dy_l}
+          {end1_dx_l} {end1_dy_l}
+        l {l1_dx} {l1_dy}
+        l {l2_dx_l} {l2_dy}
+        l {l3_dx_l} {l3_dy}
+        l {l4_dx_l} {l4_dy}
+    " stroke="black" fill="transparent"/>
+
+    {points_svg}
 
 </g>
 """
-    return group
 
 
 # =====================================================
-# KOKO SVG (4x4)
+# KOKO SVG
 # =====================================================
 
-def generate_svg():
+def generate_svg(show_points):
 
     svg = f"""<?xml version="1.0" encoding="UTF-8"?>
 <svg width="{SVG_WIDTH}" height="{SVG_HEIGHT}"
@@ -180,15 +180,19 @@ def generate_svg():
         for col in range(COLS):
             offset_x = col * CELL_WIDTH
             offset_y = row * CELL_HEIGHT
-            svg += generate_head_group(offset_x, offset_y)
+            svg += generate_head_group(offset_x, offset_y, show_points)
 
     svg += "\n</svg>"
     return svg
 
 
 # =====================================================
-# TIEDOSTO
+# MAIN
 # =====================================================
 
-with open("heads_grid.svg", "w") as f:
-    f.write(generate_svg())
+if __name__ == "__main__":
+
+    svg_content = generate_svg(show_points=False)
+
+    with open("heads_grid.svg", "w") as f:
+        f.write(svg_content)
