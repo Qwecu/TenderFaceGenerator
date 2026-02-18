@@ -1,198 +1,188 @@
-import os
+from genes import Genome
 
 # =====================================================
-# ASETTELU
+# GLOBAALIT MITAT (EI GENEETTISET VIELÄ)
 # =====================================================
 
-COLS = 4
-ROWS = 4
+FACE_HEIGHT = 120
+HEAD_TOP = 20
 
-CELL_WIDTH = 130
-CELL_HEIGHT = 160
-
-SVG_WIDTH = COLS * CELL_WIDTH
-SVG_HEIGHT = ROWS * CELL_HEIGHT
+HEAD_WIDTH_RATIO = 0.65
 
 
 # =====================================================
-# YHDEN PÄÄN PIIRTO
+# MINIMAALINEN PÄÄGENOMI
 # =====================================================
 
-def generate_head_group(offset_x, offset_y, show_points):
+class MinimalHeadGenome:
 
-    # -------------------------------------------------
-    # PERUSMITAT
-    # -------------------------------------------------
+    def __init__(self):
+        # Luodaan genomi samalla tavalla kuin silmässä
+        self.genome = Genome(num_genes=100)
 
-    FACE_HEIGHT = 120
-    HEAD_TOP = 20
-    HEAD_BOTTOM = HEAD_TOP + FACE_HEIGHT
+    # =====================================================
+    # IHONVÄRI
+    # =====================================================
 
-    CENTER_X = CELL_WIDTH / 2
+    def get_skin_color(self):
+        """
+        Haetaan ihonväri Genome-luokan kautta.
+        Oletetaan että genes.py sisältää:
+            get_skin_color()
+        joka palauttaa (r, g, b)
+        """
+        return self.genome.get_skin_color()
 
-    HEAD_WIDTH = FACE_HEIGHT * 0.65
-    HALF_WIDTH = HEAD_WIDTH / 2
+    # =====================================================
+    # GROUP GENEROINTI
+    # =====================================================
 
-    # -------------------------------------------------
-    # TUKIPISTEET
-    # -------------------------------------------------
+    def generate_group(self, show_points=False):
 
-    top_x = CENTER_X
-    top_y = HEAD_TOP
+        skin_color = self.get_skin_color()
 
-    chin_x = CENTER_X
-    chin_y = HEAD_BOTTOM
+        CENTER_X = 65
+        HEAD_BOTTOM = HEAD_TOP + FACE_HEIGHT
 
-    ear_top_y = HEAD_TOP + FACE_HEIGHT * 0.3
-    ear_bottom_y = HEAD_TOP + FACE_HEIGHT * 0.55
+        HEAD_WIDTH = FACE_HEIGHT * HEAD_WIDTH_RATIO
+        HALF_WIDTH = HEAD_WIDTH / 2
 
-    ear_left_x = CENTER_X - HALF_WIDTH
-    ear_right_x = CENTER_X + HALF_WIDTH
+        # --- TUKIPISTEET ---
 
-    jaw_y = HEAD_TOP + FACE_HEIGHT * 0.75
-    jaw_offset = HALF_WIDTH * 0.85
-    jaw_left_x = CENTER_X - jaw_offset
-    jaw_right_x = CENTER_X + jaw_offset
+        top_x = CENTER_X
+        top_y = HEAD_TOP
 
-    chin_side_y = HEAD_TOP + FACE_HEIGHT * 0.88
-    chin_side_offset = HALF_WIDTH * 0.45
-    chin_side_left_x = CENTER_X - chin_side_offset
-    chin_side_right_x = CENTER_X + chin_side_offset
+        chin_x = CENTER_X
+        chin_y = HEAD_BOTTOM
 
-    # -------------------------------------------------
-    # RELATIIVISET DELTAT (OIKEA)
-    # -------------------------------------------------
+        ear_top_y = HEAD_TOP + FACE_HEIGHT * 0.3
+        ear_bottom_y = HEAD_TOP + FACE_HEIGHT * 0.55
 
-    m_x = top_x
-    m_y = top_y
+        ear_left_x  = CENTER_X - HALF_WIDTH
+        ear_right_x = CENTER_X + HALF_WIDTH
 
-    c1_dx = HALF_WIDTH * 0.5
-    c1_dy = 0
+        jaw_y = HEAD_TOP + FACE_HEIGHT * 0.75
+        jaw_offset = HALF_WIDTH * 0.85
+        jaw_left_x  = CENTER_X - jaw_offset
+        jaw_right_x = CENTER_X + jaw_offset
 
-    c2_dx = ear_right_x - top_x
-    c2_dy = (ear_top_y - 40) - top_y
+        chin_side_y = HEAD_TOP + FACE_HEIGHT * 0.88
+        chin_side_offset = HALF_WIDTH * 0.45
+        chin_side_left_x  = CENTER_X - chin_side_offset
+        chin_side_right_x = CENTER_X + chin_side_offset
 
-    end1_dx = ear_right_x - top_x
-    end1_dy = ear_top_y - top_y
 
-    l1_dx = 0
-    l1_dy = ear_bottom_y - ear_top_y
+        # =====================================================
+        # SULKEVAN KAAREN RELATIIVISET DELTAT (SYMMETRISET)
+        # =====================================================
 
-    l2_dx = jaw_right_x - ear_right_x
-    l2_dy = jaw_y - ear_bottom_y
+        # Lähtöpiste sulkevassa kaaressa:
+        # (ear_left_x, ear_top_y)
 
-    l3_dx = chin_side_right_x - jaw_right_x
-    l3_dy = chin_side_y - jaw_y
+        # Absoluuttisesti symmetriset kontrollipisteet:
+        # CP1_left_abs = (ear_left_x, ear_top_y - 40)
+        # CP2_left_abs = (CENTER_X - HALF_WIDTH*0.5, HEAD_TOP)
+        # End_abs      = (top_x, top_y)
 
-    l4_dx = chin_x - chin_side_right_x
-    l4_dy = chin_y - chin_side_y
+        close_c1_dx = 0
+        close_c1_dy = -40
 
-    # -------------------------------------------------
-    # RELATIIVISET DELTAT (VASEN)
-    # -------------------------------------------------
+        close_c2_dx = (CENTER_X - HALF_WIDTH * 0.5) - ear_left_x
+        close_c2_dy = HEAD_TOP - ear_top_y
 
-    c1_dx_l = -HALF_WIDTH * 0.5
-    c1_dy_l = 0
+        close_end_dx = top_x - ear_left_x
+        close_end_dy = top_y - ear_top_y
 
-    c2_dx_l = ear_left_x - top_x
-    c2_dy_l = (ear_top_y - 40) - top_y
 
-    end1_dx_l = ear_left_x - top_x
-    end1_dy_l = ear_top_y - top_y
+        # =====================================================
+        # RELATIIVINEN PATH (TÄYSIN SYMMETRINEN)
+        # =====================================================
 
-    l2_dx_l = jaw_left_x - ear_left_x
-    l3_dx_l = chin_side_left_x - jaw_left_x
-    l4_dx_l = chin_x - chin_side_left_x
+        d = f"""
+        m {top_x} {top_y}
 
-    # -------------------------------------------------
-    # TUKIPISTEET SVG (OPTIONAALINEN)
-    # -------------------------------------------------
+        c {HALF_WIDTH*0.5} 0
+        {HALF_WIDTH} {ear_top_y - 40 - top_y}
+        {HALF_WIDTH} {ear_top_y - top_y}
 
-    points_svg = ""
-    if show_points:
-        points_svg = f"""
-    <circle cx="{top_x}" cy="{top_y}" r="3" fill="red"/>
-    <circle cx="{chin_x}" cy="{chin_y}" r="3" fill="red"/>
+        l 0 {ear_bottom_y - ear_top_y}
 
-    <circle cx="{ear_left_x}" cy="{ear_top_y}" r="3" fill="red"/>
-    <circle cx="{ear_right_x}" cy="{ear_top_y}" r="3" fill="red"/>
+        l {jaw_right_x - ear_right_x} {jaw_y - ear_bottom_y}
 
-    <circle cx="{ear_left_x}" cy="{ear_bottom_y}" r="3" fill="red"/>
-    <circle cx="{ear_right_x}" cy="{ear_bottom_y}" r="3" fill="red"/>
+        l {chin_side_right_x - jaw_right_x} {chin_side_y - jaw_y}
 
-    <circle cx="{jaw_left_x}" cy="{jaw_y}" r="3" fill="red"/>
-    <circle cx="{jaw_right_x}" cy="{jaw_y}" r="3" fill="red"/>
+        l {chin_x - chin_side_right_x} {chin_y - chin_side_y}
 
-    <circle cx="{chin_side_left_x}" cy="{chin_side_y}" r="3" fill="red"/>
-    <circle cx="{chin_side_right_x}" cy="{chin_side_y}" r="3" fill="red"/>
+        l {chin_side_left_x - chin_x} {chin_side_y - chin_y}
+
+        l {jaw_left_x - chin_side_left_x} {jaw_y - chin_side_y}
+
+        l {ear_left_x - jaw_left_x} {ear_bottom_y - jaw_y}
+
+        l 0 {ear_top_y - ear_bottom_y}
+
+        c {close_c1_dx} {close_c1_dy}
+        {close_c2_dx} {close_c2_dy}
+        {close_end_dx} {close_end_dy}
+        """
+
+
+        # --- TUKIPISTEET OPTIONAALISESTI ---
+
+        points_svg = ""
+        if show_points:
+            points_svg = f"""
+<circle cx="{top_x}" cy="{top_y}" r="3" fill="red"/>
+<circle cx="{chin_x}" cy="{chin_y}" r="3" fill="red"/>
 """
 
-    # -------------------------------------------------
-    # GROUP
-    # -------------------------------------------------
-
-    return f"""
-<g transform="translate({offset_x},{offset_y})">
-
-    <path d="
-        m {m_x} {m_y}
-        c {c1_dx} {c1_dy}
-          {c2_dx} {c2_dy}
-          {end1_dx} {end1_dy}
-        l {l1_dx} {l1_dy}
-        l {l2_dx} {l2_dy}
-        l {l3_dx} {l3_dy}
-        l {l4_dx} {l4_dy}
-    " stroke="black" fill="transparent"/>
-
-    <path d="
-        m {m_x} {m_y}
-        c {c1_dx_l} {c1_dy_l}
-          {c2_dx_l} {c2_dy_l}
-          {end1_dx_l} {end1_dy_l}
-        l {l1_dx} {l1_dy}
-        l {l2_dx_l} {l2_dy}
-        l {l3_dx_l} {l3_dy}
-        l {l4_dx_l} {l4_dy}
-    " stroke="black" fill="transparent"/>
-
-    {points_svg}
-
-</g>
+        return f"""
+<path d="{d}"
+      fill="rgb{skin_color}"
+      stroke="black"
+      stroke-width="1.5"/>
+{points_svg}
 """
 
+def generate_head_grid():
 
-# =====================================================
-# KOKO SVG
-# =====================================================
+    COLS = 4
+    ROWS = 4
 
-def generate_svg(show_points):
+    CELL_WIDTH = 130
+    CELL_HEIGHT = 160
 
-    svg = f"""<?xml version="1.0" encoding="UTF-8"?>
-<svg width="{SVG_WIDTH}" height="{SVG_HEIGHT}"
-     viewBox="0 0 {SVG_WIDTH} {SVG_HEIGHT}"
-     xmlns="http://www.w3.org/2000/svg">
+    total_width = COLS * CELL_WIDTH
+    total_height = ROWS * CELL_HEIGHT
 
-<rect width="100%" height="100%" fill="white"/>
-"""
+    svg_content = ""
 
     for row in range(ROWS):
         for col in range(COLS):
-            offset_x = col * CELL_WIDTH
-            offset_y = row * CELL_HEIGHT
-            svg += generate_head_group(offset_x, offset_y, show_points)
 
-    svg += "\n</svg>"
-    return svg
+            head = MinimalHeadGenome()
 
+            tx = col * CELL_WIDTH
+            ty = row * CELL_HEIGHT
 
-# =====================================================
-# MAIN
-# =====================================================
+            svg_content += f"""
+<g transform="translate({tx},{ty})">
+{head.generate_group(show_points=False)}
+</g>
+"""
+
+    return f"""
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 {total_width} {total_height}">
+{svg_content}
+</svg>
+"""
 
 if __name__ == "__main__":
 
-    svg_content = generate_svg(show_points=False)
+    svg_output = generate_head_grid()
 
-    with open("heads_grid.svg", "w") as f:
-        f.write(svg_content)
+    with open("genetic_head_grid.svg", "w") as f:
+        f.write(svg_output)
+
+    print("SVG created: genetic_head_grid.svg")
