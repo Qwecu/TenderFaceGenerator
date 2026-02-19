@@ -37,11 +37,11 @@ PUPIL_RADIUS = 16
 # Arvot eivät ole todennäköisyyksiä vaan suhteellisia painoja.
 
 SEGMENT_TYPE_WEIGHTS = {
-    "l": 0.25,  # Line (suora segmentti)
-    "c": 0.35,  # Cubic Bezier
-    "q": 0.20,  # Quadratic Bezier
-    "s": 0.10,  # Smooth cubic Bezier
-    "t": 0.10   # Smooth quadratic Bezier
+    "L": 0.25,  # Line (suora segmentti)
+    "C": 0.35,  # Cubic Bezier
+    "Q": 0.20,  # Quadratic Bezier
+    "S": 0.10,  # Smooth cubic Bezier
+    "T": 0.10   # Smooth quadratic Bezier
 }
 
 SEGMENT_TYPES = list(SEGMENT_TYPE_WEIGHTS.keys())
@@ -140,8 +140,10 @@ class MinimalEyeGenome:
 
     def build_path(self, dx_list, dy_list, seg_types, tensions):
 
-        # Lähtöpiste absoluuttisesti (m), sen jälkeen kaikki relatiivista
-        d = f"m 0 {BASE_Y:.2f} "
+        x = 0
+        y = 0
+
+        d = f"M {x:.2f} {y:.2f} "
 
         for i in range(4):
 
@@ -150,34 +152,53 @@ class MinimalEyeGenome:
             t = seg_types[i]
             tension = tensions[i]
 
+            x_next = x + dx
+            y_next = y + dy
+
             ctrl_offset = tension * dx * TENSION_RATIO
 
-            if t == "l":
-                d += f"l {dx:.2f} {dy:.2f} "
+            if t == "L":
+                d += f"L {x_next:.2f} {y_next:.2f} "
 
-            elif t == "c":
+            elif t == "C":
+                c1x = x + dx * 0.25
+                c1y = y + dy * 0.25 + ctrl_offset
+
+                c2x = x + dx * 0.75
+                c2y = y + dy * 0.75 + ctrl_offset
+
                 d += (
-                    f"c {dx*0.25:.2f} {dy*0.25 + ctrl_offset:.2f} "
-                    f"{dx*0.75:.2f} {dy*0.75 + ctrl_offset:.2f} "
-                    f"{dx:.2f} {dy:.2f} "
+                    f"C {c1x:.2f} {c1y:.2f} "
+                    f"{c2x:.2f} {c2y:.2f} "
+                    f"{x_next:.2f} {y_next:.2f} "
                 )
 
-            elif t == "q":
+            elif t == "Q":
+                cx = x + dx * 0.5
+                cy = y + dy * 0.5 + ctrl_offset
+
                 d += (
-                    f"q {dx*0.5:.2f} {dy*0.5 + ctrl_offset:.2f} "
-                    f"{dx:.2f} {dy:.2f} "
+                    f"Q {cx:.2f} {cy:.2f} "
+                    f"{x_next:.2f} {y_next:.2f} "
                 )
 
-            elif t == "s":
+            elif t == "S":
+                c2x = x + dx * 0.75
+                c2y = y + dy * 0.75 + ctrl_offset
+
                 d += (
-                    f"s {dx*0.75:.2f} {dy*0.75 + ctrl_offset:.2f} "
-                    f"{dx:.2f} {dy:.2f} "
+                    f"S {c2x:.2f} {c2y:.2f} "
+                    f"{x_next:.2f} {y_next:.2f} "
                 )
 
-            elif t == "t":
-                d += f"t {dx:.2f} {dy:.2f} "
+            elif t == "T":
+                d += f"T {x_next:.2f} {y_next:.2f} "
+
+            x = x_next
+            y = y_next
 
         return d
+
 
     # =====================================================
     # VÄRIN MUUNNOS
@@ -279,7 +300,7 @@ class MinimalEyeGenome:
 
         # Iiriksen keskipiste
         iris_center_x = sum(dx_list[:2])
-        iris_center_y = BASE_Y + (sum(upper_dy[0:3]) + sum(lower_dy[0:3])) / 2
+        iris_center_y = (sum(upper_dy[0:3]) + sum(lower_dy[0:3])) / 2
 
         base_color = self.genome.get_iris_color()
         highlight_color = self.genome.get_iris_highlight_color()

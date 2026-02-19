@@ -72,59 +72,39 @@ class MinimalHeadGenome:
         chin_side_right_x = CENTER_X + chin_side_offset
 
 
-        # =====================================================
-        # SULKEVAN KAAREN RELATIIVISET DELTAT (SYMMETRISET)
-        # =====================================================
-
-        # Lähtöpiste sulkevassa kaaressa:
-        # (ear_left_x, ear_top_y)
-
-        # Absoluuttisesti symmetriset kontrollipisteet:
-        # CP1_left_abs = (ear_left_x, ear_top_y - 40)
-        # CP2_left_abs = (CENTER_X - HALF_WIDTH*0.5, HEAD_TOP)
-        # End_abs      = (top_x, top_y)
-
-        close_c1_dx = 0
-        close_c1_dy = -40
-
-        close_c2_dx = (CENTER_X - HALF_WIDTH * 0.5) - ear_left_x
-        close_c2_dy = HEAD_TOP - ear_top_y
-
-        close_end_dx = top_x - ear_left_x
-        close_end_dy = top_y - ear_top_y
-
 
         # =====================================================
-        # RELATIIVINEN PATH (TÄYSIN SYMMETRINEN)
+        # ABSOLUUTTINEN PATH (TÄYSIN SYMMETRINEN)
         # =====================================================
 
         d = f"""
-        m {top_x} {top_y}
+        M {top_x} {top_y}
 
-        c {HALF_WIDTH*0.5} 0
-        {HALF_WIDTH} {ear_top_y - 40 - top_y}
-        {HALF_WIDTH} {ear_top_y - top_y}
+        C {top_x + HALF_WIDTH*0.5} {top_y}
+        {ear_right_x} {ear_top_y - 40}
+        {ear_right_x} {ear_top_y}
 
-        l 0 {ear_bottom_y - ear_top_y}
+        L {ear_right_x} {ear_bottom_y}
 
-        l {jaw_right_x - ear_right_x} {jaw_y - ear_bottom_y}
+        L {jaw_right_x} {jaw_y}
 
-        l {chin_side_right_x - jaw_right_x} {chin_side_y - jaw_y}
+        L {chin_side_right_x} {chin_side_y}
 
-        l {chin_x - chin_side_right_x} {chin_y - chin_side_y}
+        L {chin_x} {chin_y}
 
-        l {chin_side_left_x - chin_x} {chin_side_y - chin_y}
+        L {chin_side_left_x} {chin_side_y}
 
-        l {jaw_left_x - chin_side_left_x} {jaw_y - chin_side_y}
+        L {jaw_left_x} {jaw_y}
 
-        l {ear_left_x - jaw_left_x} {ear_bottom_y - jaw_y}
+        L {ear_left_x} {ear_bottom_y}
 
-        l 0 {ear_top_y - ear_bottom_y}
+        L {ear_left_x} {ear_top_y}
 
-        c {close_c1_dx} {close_c1_dy}
-        {close_c2_dx} {close_c2_dy}
-        {close_end_dx} {close_end_dy}
+        C {ear_left_x} {ear_top_y - 40}
+        {top_x - HALF_WIDTH*0.5} {top_y}
+        {top_x} {top_y}
         """
+
 
 
         # --- TUKIPISTEET OPTIONAALISESTI ---
