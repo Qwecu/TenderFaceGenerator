@@ -10,10 +10,6 @@ EYE_WIDTH = 140
 # Silmän kokonaisleveys pikseleinä.
 # Δx-segmentit skaalataan niin, että niiden summa on tämä arvo.
 
-BASE_Y = 72          
-# Silmän vasemman kulman lähtökoordinaatti y-suunnassa.
-# Kaikki pathit alkavat pisteestä (0, BASE_Y).
-
 FOLD_RATIO = 0.06    
 # Luomiraon korkeus suhteessa silmän leveyteen.
 # Fold-offset = EYE_WIDTH * FOLD_RATIO.
@@ -75,16 +71,16 @@ LOWER_DY_RANGES = [
 
 class MinimalEyeGenome:
 
-    def __init__(self):
-        # Luo genomin kahdella kromosomilla
-        self.genome = Genome(num_genes=120)
-        # 4 Δy ylä
-        # 4 Δy ala
-        # 16 Δx
-        # 4 ylä segmenttityypit
-        # 4 ala segmenttityypit
-        # 4 ylä tension
-        # 4 ala tension
+    def __init__(self, genome=None, stroke_ratio=140):
+        """
+        stroke_ratio:
+            Kuinka monta kertaa stroke mahtuu EYE_WIDTHiin.
+            Oletus 140 → stroke = 1px kun EYE_WIDTH = 140
+        """
+        self.genome = genome if genome is not None else Genome(num_genes=120)
+        self.stroke_ratio = stroke_ratio
+
+
 
     # =====================================================
     # ΔX
@@ -244,10 +240,29 @@ class MinimalEyeGenome:
     # PALAUTTAA VAIN GROUPIN SISÄLLÖN
     # -------------------------------------------------
 
-    def generate_group(self, clip_id):
+    def generate_group(self, clip_id, normalize=False):
 
         dx_list = self.compute_dx()
         upper_dy, lower_dy = self.compute_dy()
+        
+
+        # =====================================================
+        # NORMALISOINTI 0–1 KOORDINAATISTOON (valinnainen)
+        # =====================================================
+
+        scale = 1.0
+        radius_scale = 1.0
+        stroke_width = EYE_WIDTH / self.stroke_ratio
+
+        if normalize:
+            scale = 1.0 / EYE_WIDTH
+            radius_scale = scale
+            stroke_width *= scale
+
+            dx_list = [dx * scale for dx in dx_list]
+            upper_dy = [dy * scale for dy in upper_dy]
+            lower_dy = [dy * scale for dy in lower_dy]
+
 
         # Segmenttityypit ja jännitykset geeneistä
         upper_seg_type = [
@@ -290,7 +305,7 @@ class MinimalEyeGenome:
             lower_seg_type, lower_tension
         )
 
-        fold_offset = EYE_WIDTH * FOLD_RATIO
+        fold_offset = (EYE_WIDTH * FOLD_RATIO) * scale
         fold_dy = [dy - fold_offset for dy in upper_dy]
 
         fold_path = self.build_path(
@@ -308,21 +323,22 @@ class MinimalEyeGenome:
         iris_polygon = self.build_iris_polygon(
             iris_center_x,
             iris_center_y,
-            IRIS_RADIUS,
+            IRIS_RADIUS * radius_scale,
             highlight_color
         )
+
 
         return f"""
 <defs>
   <clipPath id="{clip_id}" clipPathUnits="userSpaceOnUse">
-    <path d="{upper_path} l 0 1" />
-    <path d="{lower_path} l 0 -1" />
+    <path d="{upper_path}" />
+    <path d="{lower_path}" />
   </clipPath>
 </defs>
 
 <circle cx="{iris_center_x:.2f}"
         cy="{iris_center_y:.2f}"
-        r="{IRIS_RADIUS}"
+        r="{IRIS_RADIUS * radius_scale}"
         fill="rgb{base_color}"
         clip-path="url(#{clip_id})"/>
 
@@ -330,13 +346,13 @@ class MinimalEyeGenome:
 
 <circle cx="{iris_center_x:.2f}"
         cy="{iris_center_y:.2f}"
-        r="{PUPIL_RADIUS}"
+        r="{PUPIL_RADIUS * radius_scale}"
         fill="black"
         clip-path="url(#{clip_id})"/>
 
-<path d="{upper_path}" fill="none" stroke="black"/>
-<path d="{fold_path}" fill="none" stroke="black"/>
-<path d="{lower_path}" fill="none" stroke="black"/>
+<path d="{upper_path}" fill="none" stroke="black" stroke-width="{stroke_width}"/>
+<path d="{fold_path}" fill="none" stroke="black" stroke-width="{stroke_width}"/>
+<path d="{lower_path}" fill="none" stroke="black" stroke-width="{stroke_width}""/>
 """
 
 # =====================================================

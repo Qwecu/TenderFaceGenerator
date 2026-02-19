@@ -16,9 +16,11 @@ HEAD_WIDTH_RATIO = 0.65
 
 class MinimalHeadGenome:
 
-    def __init__(self):
-        # Luodaan genomi samalla tavalla kuin silmässä
-        self.genome = Genome(num_genes=100)
+    def __init__(self, genome=None):
+        # Jos genomi annettu → käytä sitä
+        # Muuten luo uusi (vanha toiminta säilyy)
+        self.genome = genome if genome is not None else Genome(num_genes=100)
+
 
     # =====================================================
     # IHONVÄRI
@@ -120,7 +122,7 @@ class MinimalHeadGenome:
 <path d="{d}"
       fill="rgb{skin_color}"
       stroke="black"
-      stroke-width="1.5"/>
+      stroke-width="0.5"/>
 {points_svg}
 """
 
