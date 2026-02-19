@@ -44,6 +44,19 @@ class Genome:
         dom2, val2 = self.chromosome2[index]
 
         return val1 if dom1 >= dom2 else val2
+    
+    def get_gene_avg(self, index):
+        """
+        Palauttaa geenin arvon indeksillä `index`.
+        Ei dominanssivertailua, vaan kahden geenin keskiarvo.
+        """
+        if index < 0 or index >= self.num_genes:
+            raise IndexError("Gene index out of range")
+        
+        dom1, val1 = self.chromosome1[index]
+        dom2, val2 = self.chromosome2[index]
+
+        return (val1 + val2) / 2
 
     # -----------------------------------------------------
     # DELTA-Y GEENIT
@@ -168,18 +181,20 @@ class Genome:
 
     def get_skin_color(self):
         SKIN_PALETTE = [
+        (117, 58, 15),   # tummin ruskea
         (145, 75, 50),   # tummanruskea
         (182, 107, 62),  # keskiruskea
         (195, 124, 77), # vaalea ruskea
         (210, 153, 108), # hyvin vaalea ruskea
-        (245, 204, 171)  # lähes vaalea
+        (245, 204, 171),  # lähes vaalea
+        (249, 213, 202)  # punertavanvaalea
         ]
 
 
         """
         Palauttaa RGB-triplen liukuvasti SKIN_PALETTE:n sisällä.
         """
-        gene_value = 1 - (self.get_gene(53) / 255) * (self.get_gene(54) / 255)
+        gene_value = 1 - (self.get_gene_avg(53) / 255) * (self.get_gene_avg(54) / 255)
         t = gene_value  * (len(SKIN_PALETTE) - 1)
 
         # Lasketaan ala- ja yläindeksi
