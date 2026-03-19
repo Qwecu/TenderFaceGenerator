@@ -135,66 +135,92 @@ class MinimalEyeGenome:
     # =====================================================
 
     def build_path(self, dx_list, dy_list, seg_types, tensions):
-
+        """
+        Build SVG path with explicit control points (no smooth curves).
+        Uses M (move), L (line), C (cubic Bezier), and Q (quadratic Bezier) commands.
+        Converts smooth curves (S, T) to their explicit equivalents.
+        """
         x = 0
         y = 0
-
         d = f"M {x:.2f} {y:.2f} "
-
+        
+        # Track the last control point for smooth curve calculations
+        last_ctrl_x = x
+        last_ctrl_y = y
+        
         for i in range(4):
-
             dx = dx_list[i]
             dy = dy_list[i]
             t = seg_types[i]
             tension = tensions[i]
-
+            
             x_next = x + dx
             y_next = y + dy
-
+            
             ctrl_offset = tension * dx * TENSION_RATIO
-
+            
             if t == "L":
                 d += f"L {x_next:.2f} {y_next:.2f} "
-
+                last_ctrl_x = x_next
+                last_ctrl_y = y_next
+                
             elif t == "C":
                 c1x = x + dx * 0.25
                 c1y = y + dy * 0.25 + ctrl_offset
-
                 c2x = x + dx * 0.75
                 c2y = y + dy * 0.75 + ctrl_offset
-
+                
                 d += (
                     f"C {c1x:.2f} {c1y:.2f} "
                     f"{c2x:.2f} {c2y:.2f} "
                     f"{x_next:.2f} {y_next:.2f} "
                 )
-
+                last_ctrl_x = c2x
+                last_ctrl_y = c2y
+                
             elif t == "Q":
                 cx = x + dx * 0.5
                 cy = y + dy * 0.5 + ctrl_offset
-
+                
                 d += (
                     f"Q {cx:.2f} {cy:.2f} "
                     f"{x_next:.2f} {y_next:.2f} "
                 )
-
+                last_ctrl_x = cx
+                last_ctrl_y = cy
+                
             elif t == "S":
+                # Smooth cubic: reflect the last control point
+                reflected_c1x = 2 * x - last_ctrl_x
+                reflected_c1y = 2 * y - last_ctrl_y
+                
                 c2x = x + dx * 0.75
                 c2y = y + dy * 0.75 + ctrl_offset
-
+                
                 d += (
-                    f"S {c2x:.2f} {c2y:.2f} "
+                    f"C {reflected_c1x:.2f} {reflected_c1y:.2f} "
+                    f"{c2x:.2f} {c2y:.2f} "
                     f"{x_next:.2f} {y_next:.2f} "
                 )
-
+                last_ctrl_x = reflected_c1x
+                last_ctrl_y = reflected_c1y
+                
             elif t == "T":
-                d += f"T {x_next:.2f} {y_next:.2f} "
-
+                # Smooth quadratic: reflect the last control point
+                reflected_cx = 2 * x - last_ctrl_x
+                reflected_cy = 2 * y - last_ctrl_y
+                
+                d += (
+                    f"Q {reflected_cx:.2f} {reflected_cy:.2f} "
+                    f"{x_next:.2f} {y_next:.2f} "
+                )
+                last_ctrl_x = reflected_cx
+                last_ctrl_y = reflected_cy
+            
             x = x_next
             y = y_next
-
+        
         return d
-
 
     # =====================================================
     # VÄRIN MUUNNOS
