@@ -180,6 +180,9 @@ class Genome:
     # -----------------------------------------------------
 
     def get_skin_color(self):
+        """
+        Palauttaa RGB-triplen liukuvasti SKIN_PALETTE:n sisällä.
+        """
         SKIN_PALETTE = [
         (117, 58, 15),   # tummin ruskea
         (145, 75, 50),   # tummanruskea
@@ -189,11 +192,6 @@ class Genome:
         (245, 204, 171),  # lähes vaalea
         (249, 213, 202)  # punertavanvaalea
         ]
-
-
-        """
-        Palauttaa RGB-triplen liukuvasti SKIN_PALETTE:n sisällä.
-        """
         gene_value = 1 - (self.get_gene_avg(53) / 255) * (self.get_gene_avg(54) / 255)
         t = gene_value  * (len(SKIN_PALETTE) - 1)
 

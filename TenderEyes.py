@@ -202,8 +202,8 @@ class MinimalEyeGenome:
                     f"{c2x:.2f} {c2y:.2f} "
                     f"{x_next:.2f} {y_next:.2f} "
                 )
-                last_ctrl_x = reflected_c1x
-                last_ctrl_y = reflected_c1y
+                last_ctrl_x = c2x
+                last_ctrl_y = c2y
                 
             elif t == "T":
                 # Smooth quadratic: reflect the last control point
@@ -340,7 +340,7 @@ class MinimalEyeGenome:
         )
 
         # Iiriksen keskipiste
-        iris_center_x = sum(dx_list[:2])
+        iris_center_x = sum(dx_list) / 2
         iris_center_y = (sum(upper_dy[0:3]) + sum(lower_dy[0:3])) / 2
 
         base_color = self.genome.get_iris_color()
@@ -378,7 +378,7 @@ class MinimalEyeGenome:
 
 <path d="{upper_path}" fill="none" stroke="black" stroke-width="{stroke_width}"/>
 <path d="{fold_path}" fill="none" stroke="black" stroke-width="{stroke_width}"/>
-<path d="{lower_path}" fill="none" stroke="black" stroke-width="{stroke_width}""/>
+<path d="{lower_path}" fill="none" stroke="black" stroke-width="{stroke_width}"/>
 """
 
 # =====================================================

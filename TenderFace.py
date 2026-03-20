@@ -70,6 +70,11 @@ def generate_face_svg():
         normalize=True
     )
 
+    left_eye_svg = right_eye.generate_group(
+        clip_id="leftEyeClip",
+        normalize=True
+    )
+
     # -------------------------------------------------
     # 6. KOOSTE
     # -------------------------------------------------
@@ -83,7 +88,7 @@ def generate_face_svg():
 
     <!-- VASEN SILMÄ -->
     <g transform="translate({left_eye_x + eye_width},{eye_y}) scale(-{eye_scale},{eye_scale})">
-        {right_eye_svg}
+        {left_eye_svg}
     </g>
 
     <!-- OIKEA SILMÄ -->
