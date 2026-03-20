@@ -16,7 +16,7 @@ EYE_SPACING_RATIO = 0.18   # silmien keskipisteiden väli suhteessa pään levey
 # KOKO KASVON GENEROINTI
 # =====================================================
 
-def generate_face_svg():
+def generate_face_svg(face_id="0"):
 
     # -------------------------------------------------
     # 1. YHTEINEN GENOMI
@@ -66,12 +66,12 @@ def generate_face_svg():
 
 
     right_eye_svg = right_eye.generate_group(
-        clip_id="rightEyeClip",
+        clip_id=f"rightEyeClip_{face_id}",
         normalize=True
     )
 
     left_eye_svg = right_eye.generate_group(
-        clip_id="leftEyeClip",
+        clip_id=f"leftEyeClip_{face_id}",
         normalize=True
     )
 
