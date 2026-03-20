@@ -1,6 +1,7 @@
 from genes import Genome
 from TenderHead import MinimalHeadGenome
 from TenderEyes import MinimalEyeGenome
+from TenderMouth import TenderMouth
 
 
 # =====================================================
@@ -10,6 +11,9 @@ from TenderEyes import MinimalEyeGenome
 EYE_WIDTH_RATIO = 0.28     # eye width relative to head width
 EYE_Y_RATIO = 0.42         # eye vertical position relative to face height
 EYE_SPACING_RATIO = 0.18   # eye center spacing relative to head width
+
+MOUTH_WIDTH_RATIO = 0.38   # mouth width relative to head width
+MOUTH_Y_RATIO = 0.76       # mouth vertical position relative to face height
 
 
 # =====================================================
@@ -24,8 +28,9 @@ def generate_face_svg(face_id="0"):
 
     genome = Genome(num_genes=200)
 
-    head = MinimalHeadGenome(genome)
+    head      = MinimalHeadGenome(genome)
     right_eye = MinimalEyeGenome(genome)
+    mouth     = TenderMouth(genome)
 
     # -------------------------------------------------
     # 2. HEAD SVG
@@ -75,7 +80,17 @@ def generate_face_svg(face_id="0"):
     )
 
     # -------------------------------------------------
-    # 6. COMPOSITE
+    # 6. MOUTH PLACEMENT
+    # -------------------------------------------------
+
+    mouth_width = HEAD_WIDTH * MOUTH_WIDTH_RATIO
+    mouth_x     = CENTER_X - mouth_width / 2
+    mouth_y     = HEAD_TOP + FACE_HEIGHT * MOUTH_Y_RATIO
+
+    mouth_svg = mouth.generate_group(normalize=True)
+
+    # -------------------------------------------------
+    # 7. COMPOSITE
     # -------------------------------------------------
 
     return f"""
@@ -93,6 +108,11 @@ def generate_face_svg(face_id="0"):
     <!-- RIGHT EYE -->
     <g transform="translate({right_eye_x},{eye_y}) scale({eye_scale},{eye_scale})">
         {right_eye_svg}
+    </g>
+
+    <!-- MOUTH -->
+    <g transform="translate({mouth_x},{mouth_y}) scale({mouth_width},{mouth_width})">
+        {mouth_svg}
     </g>
 
 </svg>
