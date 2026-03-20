@@ -1,20 +1,20 @@
 import random
 
 # =====================================================
-# GENOMI (KAKSI KROMOSOMIA)
+# GENOME (TWO CHROMOSOMES)
 # =====================================================
 
 class Genome:
     """
-    Yksinkertainen genomi kahdella kromosomilla.
-    Jokainen kromosomi on lista tupleja: (dominance, gene_value).
-    Dominance: suurempi arvo voittaa.
+    Simple genome with two chromosomes.
+    Each chromosome is a list of tuples: (dominance, gene_value).
+    Dominance: higher value wins.
     Gene_value: 0–255
     """
 
     def __init__(self, num_genes=128):
         """
-        Luo kaksi kromosomia satunnaisilla geeneillä.
+        Creates two chromosomes with random genes.
         """
         self.chromosome1 = [
             (random.randint(0, 255), random.randint(0, 255))
@@ -29,13 +29,13 @@ class Genome:
         self.num_genes = num_genes
 
     # =====================================================
-    # PERUS GETTER
+    # BASIC GETTER
     # =====================================================
 
     def get_gene(self, index):
         """
-        Palauttaa geenin arvon indeksillä `index`.
-        Verrataan dominanssia kromosomeissa.
+        Returns the gene value at `index`.
+        Compares dominance across chromosomes.
         """
         if index < 0 or index >= self.num_genes:
             raise IndexError("Gene index out of range")
@@ -44,48 +44,49 @@ class Genome:
         dom2, val2 = self.chromosome2[index]
 
         return val1 if dom1 >= dom2 else val2
-    
+
     def get_gene_avg(self, index):
         """
-        Palauttaa geenin arvon indeksillä `index`.
-        Ei dominanssivertailua, vaan kahden geenin keskiarvo.
+        Returns the gene value at `index`.
+        No dominance comparison — returns the average of both genes.
         """
         if index < 0 or index >= self.num_genes:
             raise IndexError("Gene index out of range")
-        
+
         dom1, val1 = self.chromosome1[index]
         dom2, val2 = self.chromosome2[index]
 
         return (val1 + val2) / 2
 
     # -----------------------------------------------------
-    # DELTA-Y GEENIT
+    # DELTA-Y GENES
     # -----------------------------------------------------
 
     def get_upper_y_gene(self, index):
         """
-        Palauttaa y-geenin yläluomelle tietyn segmentin indeksiin.
+        Returns the y-gene for the upper eyelid at the given segment index.
         """
         return self.get_gene(index)
 
     def get_lower_y_gene(self, index):
         """
-        Palauttaa y-geenin alaluomelle tietyn segmentin indeksiin.
+        Returns the y-gene for the lower eyelid at the given segment index.
         """
         return self.get_gene(index + 4)
 
     # -----------------------------------------------------
-    # ΔX GEENIT
+    # ΔX GENES
     # -----------------------------------------------------
 
     def get_width_gene(self, segment, gene_index):
         """
-        Palauttaa Δx-geenin arvon segmentissä `segment` ja geenin `gene_index`.
+        Returns the Δx gene value for `segment` and `gene_index`.
         """
         idx = segment * 4 + gene_index + 8
         return self.get_gene(idx)
-# -----------------------------------------------------
-    # SEGMENTTITYYPPI (PAINOTETTU, EI SATUNNAINEN)
+
+    # -----------------------------------------------------
+    # SEGMENT TYPE (WEIGHTED, NOT RANDOM)
     # -----------------------------------------------------
 
     def get_segment_type(
@@ -96,20 +97,20 @@ class Genome:
         upper=True
     ):
         """
-        Palauttaa segmenttityypin annetun painojakauman mukaan.
+        Returns the segment type according to the given weight distribution.
 
-        segment_types : lista tyypeistä, esim ["l","c","q","s","t"]
-        weights       : lista painoista samassa järjestyksessä
-        upper         : True = yläluomi, False = alaluomi
+        segment_types : list of types, e.g. ["L","C","Q","S","T"]
+        weights       : list of weights in the same order
+        upper         : True = upper eyelid, False = lower eyelid
         """
 
-        # Geenien indeksit:
-        # 24–27 = ylä segmenttityypit
-        # 28–31 = ala segmenttityypit
+        # Gene indices:
+        # 24–27 = upper segment types
+        # 28–31 = lower segment types
         base_idx = 24 if upper else 28
         gene_value = self.get_gene(base_idx + segment)
 
-        # Muutetaan painot kumulatiiviseksi jakaumaksi
+        # Convert weights to a cumulative distribution
         total_weight = sum(weights)
         cumulative = []
         running = 0
@@ -118,54 +119,51 @@ class Genome:
             running += w
             cumulative.append(running / total_weight)
 
-        # Skaalataan geenin arvo 0–255 -> 0–1
+        # Scale gene value 0–255 -> 0–1
         normalized = gene_value / 255.0
 
-        # Valitaan tyyppi deterministisesti
+        # Deterministically select type
         for i, threshold in enumerate(cumulative):
             if normalized <= threshold:
                 return segment_types[i]
 
-        # fallback (varmuuden vuoksi)
+        # fallback
         return segment_types[-1]
-    
+
     # -----------------------------------------------------
-    # TENSION GEENIT
+    # TENSION GENES
     # -----------------------------------------------------
 
     def get_tension(self, segment, upper=True):
         """
-        Palauttaa jännitysarvon [-1, 1].
+        Returns the tension value in the range [-1, 1].
         """
         base_idx = 32 if upper else 36
         val = self.get_gene(base_idx + segment)
 
-        return (val / 127.5) - 1.0  # skaalataan 0-255 -> -1..1
+        return (val / 127.5) - 1.0  # scale 0–255 -> -1..1
 
 
     # -----------------------------------------------------
-    # IIRIKSEN VÄRIGEENIT
+    # IRIS COLOR GENES
     # -----------------------------------------------------
 
     def get_iris_color(self):
         """
-        Palauttaa iiriksen värin RGB-triplena.
-        Kukin kanava neljän geenin keskiarvona.
+        Returns the iris color as an RGB triple.
+        Each channel is the average of four genes.
         """
-
-
         r = (self.get_gene(40) + self.get_gene(41)  + self.get_gene(42) + self.get_gene(43)) // 4
         g = (self.get_gene(44) + self.get_gene(45)  + self.get_gene(46) + self.get_gene(47)) // 4
         b = (self.get_gene(48) + self.get_gene(49)  + self.get_gene(50) + self.get_gene(51)) // 4
 
         return (r, g, b)
-    
+
     def get_iris_highlight_color(self):
         """
-        Palauttaa iiriksen värin RGB-triplena.
-        Kukin kanava kolmen geenin keskiarvona.
+        Returns the iris highlight color as an RGB triple.
+        Each channel is the average of three genes.
         """
-
         r = (self.get_gene(40) + self.get_gene(41)  + self.get_gene(42)) // 3
         g = (self.get_gene(44) + self.get_gene(45)  + self.get_gene(46)) // 3
         b = (self.get_gene(48) + self.get_gene(49)  + self.get_gene(50)) // 3
@@ -174,40 +172,39 @@ class Genome:
 
     def get_iris_highlight_multiplier(self):
         return self.get_gene(52) / 255.0
-    
+
     # -----------------------------------------------------
-    # IHON VÄRI (HSV-MALLI)
+    # SKIN COLOR
     # -----------------------------------------------------
 
     def get_skin_color(self):
         """
-        Palauttaa RGB-triplen liukuvasti SKIN_PALETTE:n sisällä.
+        Returns an RGB triple interpolated smoothly across SKIN_PALETTE.
         """
         SKIN_PALETTE = [
-        (117, 58, 15),   # tummin ruskea
-        (145, 75, 50),   # tummanruskea
-        (182, 107, 62),  # keskiruskea
-        (195, 124, 77), # vaalea ruskea
-        (210, 153, 108), # hyvin vaalea ruskea
-        (245, 204, 171),  # lähes vaalea
-        (249, 213, 202)  # punertavanvaalea
+        (117, 58, 15),   # darkest brown
+        (145, 75, 50),   # dark brown
+        (182, 107, 62),  # medium brown
+        (195, 124, 77),  # light brown
+        (210, 153, 108), # very light brown
+        (245, 204, 171), # near fair
+        (249, 213, 202)  # pinkish fair
         ]
+
         gene_value = 1 - (self.get_gene_avg(53) / 255) * (self.get_gene_avg(54) / 255)
         t = gene_value  * (len(SKIN_PALETTE) - 1)
 
-        # Lasketaan ala- ja yläindeksi
+        # Compute lower and upper palette indices
         idx0 = int(t)
         idx1 = min(idx0 + 1, len(SKIN_PALETTE) - 1)
-        f = t - idx0  # välinen liuku
+        f = t - idx0  # fractional blend
 
         r0, g0, b0 = SKIN_PALETTE[idx0]
         r1, g1, b1 = SKIN_PALETTE[idx1]
 
-        # Lineaarinen interpolaatio
+        # Linear interpolation
         r = int(r0 + (r1 - r0) * f)
         g = int(g0 + (g1 - g0) * f)
         b = int(b0 + (b1 - b0) * f)
 
         return (r, g, b)
-
-

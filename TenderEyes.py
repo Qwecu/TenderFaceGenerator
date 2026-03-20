@@ -3,37 +3,36 @@ from genes import Genome
 import math
 
 # =====================================================
-# GLOBAALIT PARAMETRIT
+# GLOBAL PARAMETERS
 # =====================================================
 
-EYE_WIDTH = 140      
-# Silmän kokonaisleveys pikseleinä.
-# Δx-segmentit skaalataan niin, että niiden summa on tämä arvo.
+EYE_WIDTH = 140
+# Total eye width in pixels.
+# Δx segments are scaled so their sum equals this value.
 
-FOLD_RATIO = 0.06    
-# Luomiraon korkeus suhteessa silmän leveyteen.
-# Fold-offset = EYE_WIDTH * FOLD_RATIO.
+FOLD_RATIO = 0.06
+# Eyelid crease height relative to eye width.
+# Fold offset = EYE_WIDTH * FOLD_RATIO.
 
-TENSION_RATIO = 0.25 
-# Maksimijännityksen suhde segmentin pituuteen.
-# Määrittää kuinka voimakkaasti Bezier-kontrollipiste
-# voi poiketa suorasta linjasta.
+TENSION_RATIO = 0.25
+# Maximum tension as a fraction of segment length.
+# Controls how far a Bezier control point can deviate from a straight line.
 
-IRIS_RADIUS = 36    
-# Iiriksen säde pikseleinä.
+IRIS_RADIUS = 36
+# Iris radius in pixels.
 
-PUPIL_RADIUS = 16    
-# Pupillin säde pikseleinä.
+PUPIL_RADIUS = 16
+# Pupil radius in pixels.
 
 
 # -----------------------------------------------------
-# SEGMENTTITYYPPIEN TODENNÄKÖISYYDET
+# SEGMENT TYPE PROBABILITIES
 # -----------------------------------------------------
-# Painotettu jakauma SVG-pathin segmenttikomennoille.
-# Arvot eivät ole todennäköisyyksiä vaan suhteellisia painoja.
+# Weighted distribution for SVG path segment commands.
+# Values are relative weights, not probabilities.
 
 SEGMENT_TYPE_WEIGHTS = {
-    "L": 0.25,  # Line (suora segmentti)
+    "L": 0.25,  # Line (straight segment)
     "C": 0.35,  # Cubic Bezier
     "Q": 0.20,  # Quadratic Bezier
     "S": 0.10,  # Smooth cubic Bezier
@@ -45,10 +44,10 @@ SEGMENT_WEIGHTS = list(SEGMENT_TYPE_WEIGHTS.values())
 
 
 # =====================================================
-# DELTA-Y RANGET
+# DELTA-Y RANGES
 # =====================================================
-# Jokainen arvo on RELATIIVINEN y-muutos (Δy) kyseiselle segmentille.
-# Arvot määrittelevät biologisen "liikealueen" segmenttikohtaisesti.
+# Each value is a RELATIVE y-change (Δy) for the given segment.
+# Values define the biological "range of motion" per segment.
 
 UPPER_DY_RANGES = [
     (-41, -23),
@@ -66,7 +65,7 @@ LOWER_DY_RANGES = [
 
 
 # =====================================================
-# MINIMAALINEN SILMÄ
+# MINIMAL EYE
 # =====================================================
 
 class MinimalEyeGenome:
@@ -74,8 +73,8 @@ class MinimalEyeGenome:
     def __init__(self, genome=None, stroke_ratio=140):
         """
         stroke_ratio:
-            Kuinka monta kertaa stroke mahtuu EYE_WIDTHiin.
-            Oletus 140 → stroke = 1px kun EYE_WIDTH = 140
+            How many times the stroke fits into EYE_WIDTH.
+            Default 140 → stroke = 1px when EYE_WIDTH = 140
         """
         self.genome = genome if genome is not None else Genome(num_genes=120)
         self.stroke_ratio = stroke_ratio
@@ -89,12 +88,12 @@ class MinimalEyeGenome:
     def compute_dx(self):
         raw = []
 
-        # Keskiarvo neljästä geenistä per segmentti
+        # Average of four genes per segment
         for seg in range(4):
             vals = [self.genome.get_width_gene(seg, i) for i in range(4)]
             raw.append(max(1, sum(vals) / 4))
 
-        # Skaalataan niin, että segmenttien summa = EYE_WIDTH
+        # Scale so the sum of segments equals EYE_WIDTH
         scale = EYE_WIDTH / sum(raw)
         return [r * scale for r in raw]
 
@@ -107,22 +106,21 @@ class MinimalEyeGenome:
         upper = []
         lower = []
 
-        # --- YLÄLUOMI ---
+        # --- UPPER EYELID ---
         for i in range(4):
             norm = self.genome.get_upper_y_gene(i) / 255
             mn, mx = UPPER_DY_RANGES[i]
             upper.append(mn + norm * (mx - mn))
 
-        # --- ALALUOMI ---
+        # --- LOWER EYELID ---
         for i in range(4):
             norm = self.genome.get_lower_y_gene(i) / 255
             mn, mx = LOWER_DY_RANGES[i]
             lower.append(mn + norm * (mx - mn))
 
-        # Oikean kulman vakiointi:
-        # jaa erotus kolmelle ja laita
-        # kaksi kolmasosaa viimeiselle ala-p:lle
-        # yksi kolmasosa toiseksi viimeiselle
+        # Corner correction:
+        # distribute the difference across the last two lower segments
+        # so the path closes at the right corner
 
         diff = sum(lower) - sum(upper)
         lower[-2] -= diff / 3
@@ -131,7 +129,7 @@ class MinimalEyeGenome:
         return upper, lower
 
     # =====================================================
-    # PATH RAKENNUS
+    # PATH CONSTRUCTION
     # =====================================================
 
     def build_path(self, dx_list, dy_list, seg_types, tensions):
@@ -143,33 +141,33 @@ class MinimalEyeGenome:
         x = 0
         y = 0
         d = f"M {x:.2f} {y:.2f} "
-        
+
         # Track the last control point for smooth curve calculations
         last_ctrl_x = x
         last_ctrl_y = y
-        
+
         for i in range(4):
             dx = dx_list[i]
             dy = dy_list[i]
             t = seg_types[i]
             tension = tensions[i]
-            
+
             x_next = x + dx
             y_next = y + dy
-            
+
             ctrl_offset = tension * dx * TENSION_RATIO
-            
+
             if t == "L":
                 d += f"L {x_next:.2f} {y_next:.2f} "
                 last_ctrl_x = x_next
                 last_ctrl_y = y_next
-                
+
             elif t == "C":
                 c1x = x + dx * 0.25
                 c1y = y + dy * 0.25 + ctrl_offset
                 c2x = x + dx * 0.75
                 c2y = y + dy * 0.75 + ctrl_offset
-                
+
                 d += (
                     f"C {c1x:.2f} {c1y:.2f} "
                     f"{c2x:.2f} {c2y:.2f} "
@@ -177,26 +175,26 @@ class MinimalEyeGenome:
                 )
                 last_ctrl_x = c2x
                 last_ctrl_y = c2y
-                
+
             elif t == "Q":
                 cx = x + dx * 0.5
                 cy = y + dy * 0.5 + ctrl_offset
-                
+
                 d += (
                     f"Q {cx:.2f} {cy:.2f} "
                     f"{x_next:.2f} {y_next:.2f} "
                 )
                 last_ctrl_x = cx
                 last_ctrl_y = cy
-                
+
             elif t == "S":
                 # Smooth cubic: reflect the last control point
                 reflected_c1x = 2 * x - last_ctrl_x
                 reflected_c1y = 2 * y - last_ctrl_y
-                
+
                 c2x = x + dx * 0.75
                 c2y = y + dy * 0.75 + ctrl_offset
-                
+
                 d += (
                     f"C {reflected_c1x:.2f} {reflected_c1y:.2f} "
                     f"{c2x:.2f} {c2y:.2f} "
@@ -204,31 +202,31 @@ class MinimalEyeGenome:
                 )
                 last_ctrl_x = c2x
                 last_ctrl_y = c2y
-                
+
             elif t == "T":
                 # Smooth quadratic: reflect the last control point
                 reflected_cx = 2 * x - last_ctrl_x
                 reflected_cy = 2 * y - last_ctrl_y
-                
+
                 d += (
                     f"Q {reflected_cx:.2f} {reflected_cy:.2f} "
                     f"{x_next:.2f} {y_next:.2f} "
                 )
                 last_ctrl_x = reflected_cx
                 last_ctrl_y = reflected_cy
-            
+
             x = x_next
             y = y_next
-        
+
         return d
 
     # =====================================================
-    # VÄRIN MUUNNOS
+    # COLOR UTILITY
     # =====================================================
 
     def lighten(self, color, factor=0.45):
         """
-        Vaaleampi versio väristä.
+        Returns a lighter version of the given color.
         """
         r, g, b = color
         return (
@@ -238,15 +236,13 @@ class MinimalEyeGenome:
         )
 
     # =====================================================
-    # IIRIKSEN POLYGONI
+    # IRIS POLYGON
     # =====================================================
 
     def build_iris_polygon(self, cx, cy, radius, color):
-
         """
-        Luo vaalea monikulmio iiriksen sisälle.
+        Creates a light polygon inside the iris for a highlight effect.
         """
-
         points = []
         sides = 12
         poly_radius = radius * (0.55 + 0.15 * self.genome.get_iris_highlight_multiplier())
@@ -262,18 +258,18 @@ class MinimalEyeGenome:
          fill="rgb{color}"/>
 """
 
-   # -------------------------------------------------
-    # PALAUTTAA VAIN GROUPIN SISÄLLÖN
+    # -------------------------------------------------
+    # RETURNS ONLY THE GROUP CONTENT
     # -------------------------------------------------
 
     def generate_group(self, clip_id, normalize=False):
 
         dx_list = self.compute_dx()
         upper_dy, lower_dy = self.compute_dy()
-        
+
 
         # =====================================================
-        # NORMALISOINTI 0–1 KOORDINAATISTOON (valinnainen)
+        # NORMALISE TO 0–1 COORDINATE SPACE (optional)
         # =====================================================
 
         scale = 1.0
@@ -290,7 +286,7 @@ class MinimalEyeGenome:
             lower_dy = [dy * scale for dy in lower_dy]
 
 
-        # Segmenttityypit ja jännitykset geeneistä
+        # Segment types and tensions from genes
         upper_seg_type = [
             self.genome.get_segment_type(
                 i,
@@ -339,7 +335,7 @@ class MinimalEyeGenome:
             upper_seg_type, upper_tension
         )
 
-        # Iiriksen keskipiste
+        # Iris center point
         iris_center_x = sum(dx_list) / 2
         iris_center_y = (sum(upper_dy[0:3]) + sum(lower_dy[0:3])) / 2
 
@@ -422,7 +418,7 @@ def generate_eye_grid():
 
 
 # =====================================================
-# AJETAAN
+# ENTRY POINT
 # =====================================================
 
 if __name__ == "__main__":

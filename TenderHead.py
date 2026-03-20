@@ -1,7 +1,7 @@
 from genes import Genome
 
 # =====================================================
-# GLOBAALIT MITAT (EI GENEETTISET VIELÄ)
+# GLOBAL DIMENSIONS (NOT GENETIC YET)
 # =====================================================
 
 FACE_HEIGHT = 120
@@ -11,32 +11,30 @@ HEAD_WIDTH_RATIO = 0.65
 
 
 # =====================================================
-# MINIMAALINEN PÄÄGENOMI
+# MINIMAL HEAD GENOME
 # =====================================================
 
 class MinimalHeadGenome:
 
     def __init__(self, genome=None):
-        # Jos genomi annettu → käytä sitä
-        # Muuten luo uusi (vanha toiminta säilyy)
+        # If a genome is provided → use it
+        # Otherwise create a new one (preserves old behaviour)
         self.genome = genome if genome is not None else Genome(num_genes=100)
 
 
     # =====================================================
-    # IHONVÄRI
+    # SKIN COLOR
     # =====================================================
 
     def get_skin_color(self):
         """
-        Haetaan ihonväri Genome-luokan kautta.
-        Oletetaan että genes.py sisältää:
-            get_skin_color()
-        joka palauttaa (r, g, b)
+        Fetches skin color via the Genome class.
+        Assumes genes.py exposes get_skin_color() returning (r, g, b).
         """
         return self.genome.get_skin_color()
 
     # =====================================================
-    # GROUP GENEROINTI
+    # GROUP GENERATION
     # =====================================================
 
     def generate_group(self, show_points=False):
@@ -49,7 +47,7 @@ class MinimalHeadGenome:
         HEAD_WIDTH = FACE_HEIGHT * HEAD_WIDTH_RATIO
         HALF_WIDTH = HEAD_WIDTH / 2
 
-        # --- TUKIPISTEET ---
+        # --- ANCHOR POINTS ---
 
         top_x = CENTER_X
         top_y = HEAD_TOP
@@ -76,7 +74,7 @@ class MinimalHeadGenome:
 
 
         # =====================================================
-        # ABSOLUUTTINEN PATH (TÄYSIN SYMMETRINEN)
+        # ABSOLUTE PATH (FULLY SYMMETRIC)
         # =====================================================
 
         d = f"""
@@ -109,7 +107,7 @@ class MinimalHeadGenome:
 
 
 
-        # --- TUKIPISTEET OPTIONAALISESTI ---
+        # --- OPTIONAL ANCHOR POINT MARKERS ---
 
         points_svg = ""
         if show_points:

@@ -4,22 +4,22 @@ from TenderEyes import MinimalEyeGenome
 
 
 # =====================================================
-# KASVON MITOITUSSUHTEET
+# FACE PROPORTIONS
 # =====================================================
 
-EYE_WIDTH_RATIO = 0.28     # silmän leveys suhteessa pään leveyteen
-EYE_Y_RATIO = 0.42         # silmien pystysijainti suhteessa pään korkeuteen
-EYE_SPACING_RATIO = 0.18   # silmien keskipisteiden väli suhteessa pään leveyteen
+EYE_WIDTH_RATIO = 0.28     # eye width relative to head width
+EYE_Y_RATIO = 0.42         # eye vertical position relative to face height
+EYE_SPACING_RATIO = 0.18   # eye center spacing relative to head width
 
 
 # =====================================================
-# KOKO KASVON GENEROINTI
+# FULL FACE GENERATION
 # =====================================================
 
 def generate_face_svg(face_id="0"):
 
     # -------------------------------------------------
-    # 1. YHTEINEN GENOMI
+    # 1. SHARED GENOME
     # -------------------------------------------------
 
     genome = Genome(num_genes=200)
@@ -28,13 +28,13 @@ def generate_face_svg(face_id="0"):
     right_eye = MinimalEyeGenome(genome)
 
     # -------------------------------------------------
-    # 2. PÄÄN SVG
+    # 2. HEAD SVG
     # -------------------------------------------------
 
     head_svg = head.generate_group(show_points=False)
 
     # -------------------------------------------------
-    # 3. PÄÄN MITAT (samat kuin TenderHead.py:ssä)
+    # 3. HEAD DIMENSIONS (same as in TenderHead.py)
     # -------------------------------------------------
 
     FACE_HEIGHT = 120
@@ -47,11 +47,11 @@ def generate_face_svg(face_id="0"):
     CENTER_X = 65
 
     # -------------------------------------------------
-    # 4. SILMIEN SIJOITTELU
+    # 4. EYE PLACEMENT
     # -------------------------------------------------
 
     eye_width = HEAD_WIDTH * EYE_WIDTH_RATIO
-    eye_scale = eye_width  # koska normalisoitu silmä = leveys 1
+    eye_scale = eye_width  # normalised eye has width 1
 
     eye_y = HEAD_TOP + FACE_HEIGHT * EYE_Y_RATIO
 
@@ -61,9 +61,8 @@ def generate_face_svg(face_id="0"):
     right_eye_x = CENTER_X + spacing - eye_width / 2
 
     # -------------------------------------------------
-    # 5. SILMIEN SVG (normalisoitu)
+    # 5. EYE SVG (normalised)
     # -------------------------------------------------
-
 
     right_eye_svg = right_eye.generate_group(
         clip_id=f"rightEyeClip_{face_id}",
@@ -76,22 +75,22 @@ def generate_face_svg(face_id="0"):
     )
 
     # -------------------------------------------------
-    # 6. KOOSTE
+    # 6. COMPOSITE
     # -------------------------------------------------
 
     return f"""
 <svg xmlns="http://www.w3.org/2000/svg"
      viewBox="0 0 130 160">
 
-    <!-- PÄÄ -->
+    <!-- HEAD -->
     {head_svg}
 
-    <!-- VASEN SILMÄ -->
+    <!-- LEFT EYE -->
     <g transform="translate({left_eye_x + eye_width},{eye_y}) scale(-{eye_scale},{eye_scale})">
         {left_eye_svg}
     </g>
 
-    <!-- OIKEA SILMÄ -->
+    <!-- RIGHT EYE -->
     <g transform="translate({right_eye_x},{eye_y}) scale({eye_scale},{eye_scale})">
         {right_eye_svg}
     </g>
@@ -101,7 +100,7 @@ def generate_face_svg(face_id="0"):
 
 
 # =====================================================
-# AJETAAN
+# ENTRY POINT
 # =====================================================
 
 if __name__ == "__main__":
