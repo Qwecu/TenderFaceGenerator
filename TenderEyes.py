@@ -80,7 +80,6 @@ class MinimalEyeGenome:
         self.stroke_ratio = stroke_ratio
 
 
-
     # =====================================================
     # ΔX
     # =====================================================
@@ -129,22 +128,23 @@ class MinimalEyeGenome:
         return upper, lower
 
     # =====================================================
-    # PATH CONSTRUCTION
+    # SEGMENT DATA
     # =====================================================
 
-    def build_path(self, dx_list, dy_list, seg_types, tensions):
+    def build_segments(self, dx_list, dy_list, seg_types, tensions):
         """
-        Build SVG path with explicit control points (no smooth curves).
-        Uses M (move), L (line), C (cubic Bezier), and Q (quadratic Bezier) commands.
-        Converts smooth curves (S, T) to their explicit equivalents.
-        """
-        x = 0
-        y = 0
-        d = f"M {x:.2f} {y:.2f} "
+        Compute absolute control point coordinates for each segment.
 
-        # Track the last control point for smooth curve calculations
-        last_ctrl_x = x
-        last_ctrl_y = y
+        Returns a list of dicts, each with:
+            cmd        : 'L', 'C', or 'Q'
+            x0, y0     : segment start
+            x1, y1     : segment end
+            c1, c2     : cubic control points (C only)
+            c          : quadratic control point (Q only)
+        """
+        x, y = 0.0, 0.0
+        last_ctrl_x, last_ctrl_y = x, y
+        segments = []
 
         for i in range(4):
             dx = dx_list[i]
@@ -154,71 +154,91 @@ class MinimalEyeGenome:
 
             x_next = x + dx
             y_next = y + dy
-
             ctrl_offset = tension * dx * TENSION_RATIO
 
+            seg = {'x0': x, 'y0': y, 'x1': x_next, 'y1': y_next}
+
             if t == "L":
-                d += f"L {x_next:.2f} {y_next:.2f} "
-                last_ctrl_x = x_next
-                last_ctrl_y = y_next
+                seg['cmd'] = 'L'
+                last_ctrl_x, last_ctrl_y = x_next, y_next
 
             elif t == "C":
-                c1x = x + dx * 0.25
-                c1y = y + dy * 0.25 + ctrl_offset
-                c2x = x + dx * 0.75
-                c2y = y + dy * 0.75 + ctrl_offset
-
-                d += (
-                    f"C {c1x:.2f} {c1y:.2f} "
-                    f"{c2x:.2f} {c2y:.2f} "
-                    f"{x_next:.2f} {y_next:.2f} "
-                )
-                last_ctrl_x = c2x
-                last_ctrl_y = c2y
+                c1x = x + dx * 0.25;  c1y = y + dy * 0.25 + ctrl_offset
+                c2x = x + dx * 0.75;  c2y = y + dy * 0.75 + ctrl_offset
+                seg.update({'cmd': 'C', 'c1': (c1x, c1y), 'c2': (c2x, c2y)})
+                last_ctrl_x, last_ctrl_y = c2x, c2y
 
             elif t == "Q":
-                cx = x + dx * 0.5
-                cy = y + dy * 0.5 + ctrl_offset
-
-                d += (
-                    f"Q {cx:.2f} {cy:.2f} "
-                    f"{x_next:.2f} {y_next:.2f} "
-                )
-                last_ctrl_x = cx
-                last_ctrl_y = cy
+                cx = x + dx * 0.5;  cy = y + dy * 0.5 + ctrl_offset
+                seg.update({'cmd': 'Q', 'c': (cx, cy)})
+                last_ctrl_x, last_ctrl_y = cx, cy
 
             elif t == "S":
-                # Smooth cubic: reflect the last control point
-                reflected_c1x = 2 * x - last_ctrl_x
-                reflected_c1y = 2 * y - last_ctrl_y
-
-                c2x = x + dx * 0.75
-                c2y = y + dy * 0.75 + ctrl_offset
-
-                d += (
-                    f"C {reflected_c1x:.2f} {reflected_c1y:.2f} "
-                    f"{c2x:.2f} {c2y:.2f} "
-                    f"{x_next:.2f} {y_next:.2f} "
-                )
-                last_ctrl_x = c2x
-                last_ctrl_y = c2y
+                # Smooth cubic → explicit C with reflected first control point
+                rc1x = 2 * x - last_ctrl_x;  rc1y = 2 * y - last_ctrl_y
+                c2x  = x + dx * 0.75;        c2y  = y + dy * 0.75 + ctrl_offset
+                seg.update({'cmd': 'C', 'c1': (rc1x, rc1y), 'c2': (c2x, c2y)})
+                last_ctrl_x, last_ctrl_y = c2x, c2y
 
             elif t == "T":
-                # Smooth quadratic: reflect the last control point
-                reflected_cx = 2 * x - last_ctrl_x
-                reflected_cy = 2 * y - last_ctrl_y
+                # Smooth quadratic → explicit Q with reflected control point
+                rcx = 2 * x - last_ctrl_x;  rcy = 2 * y - last_ctrl_y
+                seg.update({'cmd': 'Q', 'c': (rcx, rcy)})
+                last_ctrl_x, last_ctrl_y = rcx, rcy
 
-                d += (
-                    f"Q {reflected_cx:.2f} {reflected_cy:.2f} "
-                    f"{x_next:.2f} {y_next:.2f} "
-                )
-                last_ctrl_x = reflected_cx
-                last_ctrl_y = reflected_cy
+            segments.append(seg)
+            x, y = x_next, y_next
 
-            x = x_next
-            y = y_next
+        return segments
 
+    def segments_to_path(self, segments, reverse=False):
+        """
+        Serialise a list of segments to an SVG path string.
+
+        reverse=True traverses the list backwards, reversing each curve so
+        the path runs from the last segment's end point back to the first
+        segment's start point.  Useful for building closed eye shapes.
+        """
+        if not reverse:
+            d = f"M {segments[0]['x0']:.2f} {segments[0]['y0']:.2f} "
+            for s in segments:
+                if s['cmd'] == 'L':
+                    d += f"L {s['x1']:.2f} {s['y1']:.2f} "
+                elif s['cmd'] == 'C':
+                    c1, c2 = s['c1'], s['c2']
+                    d += f"C {c1[0]:.2f} {c1[1]:.2f} {c2[0]:.2f} {c2[1]:.2f} {s['x1']:.2f} {s['y1']:.2f} "
+                elif s['cmd'] == 'Q':
+                    c = s['c']
+                    d += f"Q {c[0]:.2f} {c[1]:.2f} {s['x1']:.2f} {s['y1']:.2f} "
+        else:
+            d = f"M {segments[-1]['x1']:.2f} {segments[-1]['y1']:.2f} "
+            for s in reversed(segments):
+                if s['cmd'] == 'L':
+                    d += f"L {s['x0']:.2f} {s['y0']:.2f} "
+                elif s['cmd'] == 'C':
+                    # Reverse cubic: swap c1/c2 and swap start/end
+                    c1, c2 = s['c1'], s['c2']
+                    d += f"C {c2[0]:.2f} {c2[1]:.2f} {c1[0]:.2f} {c1[1]:.2f} {s['x0']:.2f} {s['y0']:.2f} "
+                elif s['cmd'] == 'Q':
+                    # Reverse quadratic: same control point, swap start/end
+                    c = s['c']
+                    d += f"Q {c[0]:.2f} {c[1]:.2f} {s['x0']:.2f} {s['y0']:.2f} "
         return d
+
+    def build_closed_eye_path(self, upper_segs, lower_segs):
+        """
+        Returns a single closed path that outlines the eye opening:
+        upper eyelid forward (left → right) then lower eyelid reversed
+        (right → left), closed with Z.
+        """
+        upper_fwd = self.segments_to_path(upper_segs, reverse=False)
+        lower_rev = self.segments_to_path(lower_segs, reverse=True)
+
+        # lower_rev starts with "M ex ey" (same point upper_fwd ends at),
+        # so we strip that "M x y " prefix before appending.
+        lower_commands = " ".join(lower_rev.split()[3:])  # skip "M", x, y
+
+        return upper_fwd + lower_commands + " Z"
 
     # =====================================================
     # COLOR UTILITY
@@ -267,7 +287,6 @@ class MinimalEyeGenome:
         dx_list = self.compute_dx()
         upper_dy, lower_dy = self.compute_dy()
 
-
         # =====================================================
         # NORMALISE TO 0–1 COORDINATE SPACE (optional)
         # =====================================================
@@ -281,83 +300,63 @@ class MinimalEyeGenome:
             radius_scale = scale
             stroke_width *= scale
 
-            dx_list = [dx * scale for dx in dx_list]
+            dx_list  = [dx * scale for dx in dx_list]
             upper_dy = [dy * scale for dy in upper_dy]
             lower_dy = [dy * scale for dy in lower_dy]
 
-
         # Segment types and tensions from genes
         upper_seg_type = [
-            self.genome.get_segment_type(
-                i,
-                SEGMENT_TYPES,
-                SEGMENT_WEIGHTS,
-                upper=True
-            )
+            self.genome.get_segment_type(i, SEGMENT_TYPES, SEGMENT_WEIGHTS, upper=True)
             for i in range(4)
         ]
-
         lower_seg_type = [
-            self.genome.get_segment_type(
-                i,
-                SEGMENT_TYPES,
-                SEGMENT_WEIGHTS,
-                upper=False
-            )
+            self.genome.get_segment_type(i, SEGMENT_TYPES, SEGMENT_WEIGHTS, upper=False)
             for i in range(4)
         ]
+        upper_tension = [self.genome.get_tension(i, upper=True)  for i in range(4)]
+        lower_tension = [self.genome.get_tension(i, upper=False) for i in range(4)]
 
-        upper_tension = [
-            self.genome.get_tension(i, upper=True)
-            for i in range(4)
-        ]
+        # Build segment data (absolute coords + control points)
+        upper_segs = self.build_segments(dx_list, upper_dy, upper_seg_type, upper_tension)
+        lower_segs = self.build_segments(dx_list, lower_dy, lower_seg_type, lower_tension)
 
-        lower_tension = [
-            self.genome.get_tension(i, upper=False)
-            for i in range(4)
-        ]
+        # Individual stroke paths (for drawing the eyelid lines)
+        upper_path = self.segments_to_path(upper_segs)
+        lower_path = self.segments_to_path(lower_segs)
 
-        upper_path = self.build_path(
-            dx_list, upper_dy,
-            upper_seg_type, upper_tension
-        )
+        # Closed eye-opening shape (used for clip + sclera fill)
+        eye_shape = self.build_closed_eye_path(upper_segs, lower_segs)
 
-        lower_path = self.build_path(
-            dx_list, lower_dy,
-            lower_seg_type, lower_tension
-        )
-
+        # Eyelid crease (fold), slightly above the upper lid
         fold_offset = (EYE_WIDTH * FOLD_RATIO) * scale
         fold_dy = [dy - fold_offset for dy in upper_dy]
+        fold_segs = self.build_segments(dx_list, fold_dy, upper_seg_type, upper_tension)
+        fold_path = self.segments_to_path(fold_segs)
 
-        fold_path = self.build_path(
-            dx_list, fold_dy,
-            upper_seg_type, upper_tension
-        )
-
-        # Iris center point
+        # Iris center
         iris_center_x = sum(dx_list) / 2
         iris_center_y = (sum(upper_dy[0:3]) + sum(lower_dy[0:3])) / 2
 
-        base_color = self.genome.get_iris_color()
+        base_color      = self.genome.get_iris_color()
         highlight_color = self.genome.get_iris_highlight_color()
 
         iris_polygon = self.build_iris_polygon(
-            iris_center_x,
-            iris_center_y,
+            iris_center_x, iris_center_y,
             IRIS_RADIUS * radius_scale,
             highlight_color
         )
 
-
         return f"""
 <defs>
   <clipPath id="{clip_id}" clipPathUnits="userSpaceOnUse">
-    <path d="{upper_path}" />
-    <path d="{lower_path}" />
+    <path d="{eye_shape}" />
   </clipPath>
 </defs>
 
+<!-- Sclera (eye white) -->
+<path d="{eye_shape}" fill="white" stroke="none"/>
+
+<!-- Iris -->
 <circle cx="{iris_center_x:.2f}"
         cy="{iris_center_y:.2f}"
         r="{IRIS_RADIUS * radius_scale}"
@@ -366,14 +365,16 @@ class MinimalEyeGenome:
 
 {iris_polygon.replace('<polygon ', f'<polygon clip-path="url(#{clip_id})" ')}
 
+<!-- Pupil -->
 <circle cx="{iris_center_x:.2f}"
         cy="{iris_center_y:.2f}"
         r="{PUPIL_RADIUS * radius_scale}"
         fill="black"
         clip-path="url(#{clip_id})"/>
 
+<!-- Eyelid lines -->
 <path d="{upper_path}" fill="none" stroke="black" stroke-width="{stroke_width}"/>
-<path d="{fold_path}" fill="none" stroke="black" stroke-width="{stroke_width}"/>
+<path d="{fold_path}"  fill="none" stroke="black" stroke-width="{stroke_width}"/>
 <path d="{lower_path}" fill="none" stroke="black" stroke-width="{stroke_width}"/>
 """
 
