@@ -135,38 +135,43 @@ class TenderNose:
         bmy = bey * 0.50   # y of bridge_x_2 (midpoint of bridge)
         buy = bey * 0.25   # y of bridge_x_1 (quarter-point of bridge)
 
-        # Anchor points
+        # Anchor points — the curve passes through every one of these
         P0 = (s * bxt, 0.0)    # top of bridge
-        P1 = (s * bx2, bmy)    # bridge mid
-        P2 = (s * bx3, bey)    # bridge end
-        P3 = (s * ax,  ay)     # ala tip
+        PA = (s * bx1, buy)    # upper bridge width (now a true anchor, not just a handle)
+        P1 = (s * bx2, bmy)    # mid bridge
+        P2 = (s * bx3, bey)    # bridge end / nostril start
+        P3 = (s * ax,  ay)     # ala tip (outermost point)
         P4 = (s * aex, 1.0)    # arch endpoint
 
-        # --- Segment 1: P0 → P1 (upper bridge, gradual outward widening) ---
-        # Both control points follow the outward trend
-        s1_c1 = (s * bx1,  buy * 0.60)
-        s1_c2 = (s * bx2,  bmy * 0.70)
+        # --- Segment 1a: P0 → PA (bridge top to upper marker) ---
+        s1a_c1 = (s * bxt, buy * 0.40)
+        s1a_c2 = (s * bx1, buy * 0.70)
 
-        # --- Segment 2: P1 → P2 (lower bridge, continues widening) ---
-        s2_c1 = (s * bx2,  bmy + (bey - bmy) * 0.30)
-        s2_c2 = (s * bx3,  bmy + (bey - bmy) * 0.70)
+        # --- Segment 1b: PA → P1 (upper marker to bridge mid) ---
+        s1b_c1 = (s * bx1, buy + (bmy - buy) * 0.30)
+        s1b_c2 = (s * bx2, buy + (bmy - buy) * 0.70)
+
+        # --- Segment 2: P1 → P2 (bridge mid to bridge end) ---
+        s2_c1 = (s * bx2, bmy + (bey - bmy) * 0.30)
+        s2_c2 = (s * bx3, bmy + (bey - bmy) * 0.70)
 
         # --- Segment 3: P2 → P3 (nostril flares outward toward ala) ---
-        fh = ay - bey   # height of the flare section
+        fh = ay - bey
         s3_c1 = (s * ax, bey + fh * 0.28)
         s3_c2 = (s * ax, bey + fh * 0.68)
 
         # --- Segment 4: P3 → P4 (nostril curves back inward to base) ---
-        rh = 1.0 - ay   # height of the return section
+        rh = 1.0 - ay
         s4_c1 = (s * (ax - (ax - aex) * 0.22), ay + rh * 0.30)
         s4_c2 = (s * aex,                       ay + rh * 0.70)
 
         return (
             f"M {f(*P0)} "
-            f"C {f(*s1_c1)} {f(*s1_c2)} {f(*P1)} "
-            f"C {f(*s2_c1)} {f(*s2_c2)} {f(*P2)} "
-            f"C {f(*s3_c1)} {f(*s3_c2)} {f(*P3)} "
-            f"C {f(*s4_c1)} {f(*s4_c2)} {f(*P4)}"
+            f"C {f(*s1a_c1)} {f(*s1a_c2)} {f(*PA)} "
+            f"C {f(*s1b_c1)} {f(*s1b_c2)} {f(*P1)} "
+            f"C {f(*s2_c1)}  {f(*s2_c2)}  {f(*P2)} "
+            f"C {f(*s3_c1)}  {f(*s3_c2)}  {f(*P3)} "
+            f"C {f(*s4_c1)}  {f(*s4_c2)}  {f(*P4)}"
         )
 
     def _arch_path(self, cp):

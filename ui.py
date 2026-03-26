@@ -49,7 +49,7 @@ HTML = """<!DOCTYPE html>
     }
     #grid {
       display: grid;
-      grid-template-columns: repeat(2, 220px);
+      grid-template-columns: repeat(4, 220px);
       gap: 20px;
     }
     .face-card {
@@ -72,10 +72,14 @@ HTML = """<!DOCTYPE html>
     <button id="togglePoints" onclick="togglePoints()">Show control points</button>
   </div>
   <div id="grid">
-    <div class="face-card spinner">Loading...</div>
-    <div class="face-card spinner">Loading...</div>
-    <div class="face-card spinner">Loading...</div>
-    <div class="face-card spinner">Loading...</div>
+    <div class="face-card"><span class="spinner">Loading...</span></div>
+    <div class="face-card"><span class="spinner">Loading...</span></div>
+    <div class="face-card"><span class="spinner">Loading...</span></div>
+    <div class="face-card"><span class="spinner">Loading...</span></div>
+    <div class="face-card"><span class="spinner">Loading...</span></div>
+    <div class="face-card"><span class="spinner">Loading...</span></div>
+    <div class="face-card"><span class="spinner">Loading...</span></div>
+    <div class="face-card"><span class="spinner">Loading...</span></div>
   </div>
   <script>
     let pointsVisible = false;
@@ -123,7 +127,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/':
             self._respond(200, 'text/html', HTML.encode())
         elif self.path.startswith('/generate'):
-            faces = [generate_face_svg(face_id=str(i)) for i in range(4)]
+            faces = [generate_face_svg(face_id=str(i)) for i in range(8)]
             body = json.dumps(faces).encode()
             self._respond(200, 'application/json', body)
         else:
