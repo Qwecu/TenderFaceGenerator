@@ -37,7 +37,7 @@ class MinimalHeadGenome:
     # GROUP GENERATION
     # =====================================================
 
-    def generate_group(self, show_points=False):
+    def generate_group(self):
 
         skin_color = self.get_skin_color()
 
@@ -107,14 +107,44 @@ class MinimalHeadGenome:
 
 
 
-        # --- OPTIONAL ANCHOR POINT MARKERS ---
+        # Bezier control points for the top curves
+        ctrl_top_right_x = top_x + HALF_WIDTH * 0.5
+        ctrl_top_right_y = top_y
+        ctrl_ear_right_x = ear_right_x
+        ctrl_ear_right_y = ear_top_y - 40
 
-        points_svg = ""
-        if show_points:
-            points_svg = f"""
-<circle cx="{top_x}" cy="{top_y}" r="3" fill="red"/>
-<circle cx="{chin_x}" cy="{chin_y}" r="3" fill="red"/>
-"""
+        ctrl_ear_left_x  = ear_left_x
+        ctrl_ear_left_y  = ear_top_y - 40
+        ctrl_top_left_x  = top_x - HALF_WIDTH * 0.5
+        ctrl_top_left_y  = top_y
+
+        def pt(cx, cy, color="red"):
+            return f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="2" fill="{color}"/>'
+
+        def ctrl_line(x1, y1, x2, y2):
+            return f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="red" stroke-width="0.4" stroke-dasharray="1.5 1"/>'
+
+        points_svg = f"""
+<g class="ctrl-points" style="display:none">
+  {ctrl_line(top_x, top_y, ctrl_top_right_x, ctrl_top_right_y)}
+  {ctrl_line(ear_right_x, ear_top_y, ctrl_ear_right_x, ctrl_ear_right_y)}
+  {ctrl_line(top_x, top_y, ctrl_top_left_x, ctrl_top_left_y)}
+  {ctrl_line(ear_left_x, ear_top_y, ctrl_ear_left_x, ctrl_ear_left_y)}
+  {pt(top_x, top_y)}
+  {pt(ear_right_x, ear_top_y)}
+  {pt(ear_right_x, ear_bottom_y)}
+  {pt(jaw_right_x, jaw_y)}
+  {pt(chin_side_right_x, chin_side_y)}
+  {pt(chin_x, chin_y)}
+  {pt(chin_side_left_x, chin_side_y)}
+  {pt(jaw_left_x, jaw_y)}
+  {pt(ear_left_x, ear_bottom_y)}
+  {pt(ear_left_x, ear_top_y)}
+  {pt(ctrl_top_right_x, ctrl_top_right_y, "blue")}
+  {pt(ctrl_ear_right_x, ctrl_ear_right_y, "blue")}
+  {pt(ctrl_top_left_x, ctrl_top_left_y, "blue")}
+  {pt(ctrl_ear_left_x, ctrl_ear_left_y, "blue")}
+</g>"""
 
         return f"""
 <path d="{d}"

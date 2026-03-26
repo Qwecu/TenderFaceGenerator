@@ -2,6 +2,7 @@ from genes import Genome
 from TenderHead import MinimalHeadGenome
 from TenderEyes import MinimalEyeGenome
 from TenderMouth import TenderMouth
+from TenderNose import TenderNose
 
 
 # =====================================================
@@ -14,6 +15,9 @@ EYE_SPACING_RATIO = 0.18   # eye center spacing relative to head width
 
 MOUTH_WIDTH_RATIO = 0.38   # mouth width relative to head width
 MOUTH_Y_RATIO = 0.76       # mouth vertical position relative to face height
+
+NOSE_HEIGHT_RATIO = 0.27   # nose height relative to face height
+NOSE_Y_RATIO = 0.43        # nose top (bridge) relative to face height
 
 
 # =====================================================
@@ -31,12 +35,13 @@ def generate_face_svg(face_id="0"):
     head      = MinimalHeadGenome(genome)
     right_eye = MinimalEyeGenome(genome)
     mouth     = TenderMouth(genome)
+    nose      = TenderNose(genome)
 
     # -------------------------------------------------
     # 2. HEAD SVG
     # -------------------------------------------------
 
-    head_svg = head.generate_group(show_points=False)
+    head_svg = head.generate_group()
 
     # -------------------------------------------------
     # 3. HEAD DIMENSIONS (same as in TenderHead.py)
@@ -80,7 +85,18 @@ def generate_face_svg(face_id="0"):
     )
 
     # -------------------------------------------------
-    # 6. MOUTH PLACEMENT
+    # 6. NOSE PLACEMENT
+    # -------------------------------------------------
+
+    # Nose uses a height-normalised, center-origin coordinate space.
+    # The group is placed at (CENTER_X, nose_top_y) and scaled by nose_h.
+    nose_h = FACE_HEIGHT * NOSE_HEIGHT_RATIO
+    nose_y = HEAD_TOP + FACE_HEIGHT * NOSE_Y_RATIO
+
+    nose_svg = nose.generate_group()
+
+    # -------------------------------------------------
+    # 7. MOUTH PLACEMENT
     # -------------------------------------------------
 
     mouth_width = HEAD_WIDTH * MOUTH_WIDTH_RATIO
@@ -90,7 +106,7 @@ def generate_face_svg(face_id="0"):
     mouth_svg = mouth.generate_group(normalize=True)
 
     # -------------------------------------------------
-    # 7. COMPOSITE
+    # 8. COMPOSITE
     # -------------------------------------------------
 
     return f"""
@@ -108,6 +124,11 @@ def generate_face_svg(face_id="0"):
     <!-- RIGHT EYE -->
     <g transform="translate({right_eye_x},{eye_y}) scale({eye_scale},{eye_scale})">
         {right_eye_svg}
+    </g>
+
+    <!-- NOSE -->
+    <g transform="translate({CENTER_X},{nose_y}) scale({nose_h},{nose_h})">
+        {nose_svg}
     </g>
 
     <!-- MOUTH -->

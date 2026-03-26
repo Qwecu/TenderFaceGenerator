@@ -2,6 +2,7 @@ import json
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+
 from TenderFace import generate_face_svg
 
 PORT = 8765
@@ -33,6 +34,19 @@ HTML = """<!DOCTYPE html>
     }
     button:hover { background: #3b6347; }
     button:disabled { background: #aaa; cursor: default; }
+    #togglePoints {
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      border: 2px solid #4a7c59;
+      border-radius: 8px;
+      background: white;
+      color: #4a7c59;
+      cursor: pointer;
+    }
+    #togglePoints.active {
+      background: #4a7c59;
+      color: white;
+    }
     #grid {
       display: grid;
       grid-template-columns: repeat(2, 220px);
@@ -53,7 +67,10 @@ HTML = """<!DOCTYPE html>
 </head>
 <body>
   <h1>Tender Face Generator</h1>
-  <button id="btn" onclick="generate()">Generate new random faces</button>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <button id="btn" onclick="generate()">Generate new random faces</button>
+    <button id="togglePoints" onclick="togglePoints()">Show control points</button>
+  </div>
   <div id="grid">
     <div class="face-card spinner">Loading...</div>
     <div class="face-card spinner">Loading...</div>
@@ -61,6 +78,18 @@ HTML = """<!DOCTYPE html>
     <div class="face-card spinner">Loading...</div>
   </div>
   <script>
+    let pointsVisible = false;
+
+    function togglePoints() {
+      pointsVisible = !pointsVisible;
+      const btn = document.getElementById('togglePoints');
+      btn.textContent = pointsVisible ? 'Hide control points' : 'Show control points';
+      btn.classList.toggle('active', pointsVisible);
+      document.querySelectorAll('.ctrl-points').forEach(g => {
+        g.style.display = pointsVisible ? '' : 'none';
+      });
+    }
+
     async function generate() {
       const btn = document.getElementById('btn');
       const grid = document.getElementById('grid');
@@ -73,6 +102,9 @@ HTML = """<!DOCTYPE html>
 
       const cards = grid.querySelectorAll('.face-card');
       faces.forEach((svg, i) => { cards[i].innerHTML = svg; });
+      if (pointsVisible) {
+        document.querySelectorAll('.ctrl-points').forEach(g => { g.style.display = ''; });
+      }
 
       btn.disabled = false;
       btn.textContent = 'Generate new random faces';
@@ -90,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/':
             self._respond(200, 'text/html', HTML.encode())
-        elif self.path == '/generate':
+        elif self.path.startswith('/generate'):
             faces = [generate_face_svg(face_id=str(i)) for i in range(4)]
             body = json.dumps(faces).encode()
             self._respond(200, 'application/json', body)
