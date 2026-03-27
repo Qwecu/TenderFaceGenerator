@@ -131,7 +131,7 @@ class MinimalEyeGenome:
     # SEGMENT DATA
     # =====================================================
 
-    def build_segments(self, dx_list, dy_list, seg_types, tensions):
+    def build_segments(self, dx_list, dy_list, seg_types, tensions, y_start=0.0):
         """
         Compute absolute control point coordinates for each segment.
 
@@ -142,7 +142,7 @@ class MinimalEyeGenome:
             c1, c2     : cubic control points (C only)
             c          : quadratic control point (Q only)
         """
-        x, y = 0.0, 0.0
+        x, y = 0.0, y_start
         last_ctrl_x, last_ctrl_y = x, y
         segments = []
 
@@ -327,10 +327,26 @@ class MinimalEyeGenome:
         # Closed eye-opening shape (used for clip + sclera fill)
         eye_shape = self.build_closed_eye_path(upper_segs, lower_segs)
 
-        # Eyelid crease (fold), slightly above the upper lid
+        # Eyelid crease (fold): starts above the inner eye corner, arcs up, then
+        # converges back toward the upper lid at the outer corner.
         fold_offset = (EYE_WIDTH * FOLD_RATIO) * scale
-        fold_dy = [dy - fold_offset for dy in upper_dy]
-        fold_segs = self.build_segments(dx_list, fold_dy, upper_seg_type, upper_tension)
+        start_extra = fold_offset  # fold origin sits above the inner eye corner
+
+        # Desired gap (fold above upper lid) at each of the 5 keypoints
+        # (inner corner + after each of the 4 segments).
+        # Kept roughly uniform so the fold stays equidistant from the lid
+        # across its whole width (gentle arch, not a steep convergence):
+        desired_gaps = [
+            fold_offset,         # inner corner
+            fold_offset * 1.4,   # gentle peak
+            fold_offset * 1.2,   # middle
+            fold_offset * 0.9,   # slight descent
+            fold_offset * 0.7,   # outer corner — still above lid
+        ]
+        d_gaps = [desired_gaps[i + 1] - desired_gaps[i] for i in range(4)]
+        fold_dy = [dy - dg for dy, dg in zip(upper_dy, d_gaps)]
+        fold_segs = self.build_segments(dx_list, fold_dy, upper_seg_type, upper_tension,
+                                        y_start=-start_extra)
         fold_path = self.segments_to_path(fold_segs)
 
         # Iris center
