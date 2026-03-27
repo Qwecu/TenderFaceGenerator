@@ -9,15 +9,13 @@ from TenderNose import TenderNose
 # FACE PROPORTIONS
 # =====================================================
 
-EYE_WIDTH_RATIO = 0.28     # eye width relative to head width
-EYE_Y_RATIO = 0.42         # eye vertical position relative to face height
-EYE_SPACING_RATIO = 0.18   # eye center spacing relative to head width
+EYE_WIDTH_RATIO   = 0.28   # eye width relative to head width (fixed)
+MOUTH_WIDTH_RATIO = 0.38   # mouth width relative to head width (fixed)
 
-MOUTH_WIDTH_RATIO = 0.38   # mouth width relative to head width
-MOUTH_Y_RATIO = 0.76       # mouth vertical position relative to face height
 
-NOSE_HEIGHT_RATIO = 0.27   # nose height relative to face height
-NOSE_Y_RATIO = 0.43        # nose top (bridge) relative to face height
+def _layout_gene(genome, index, lo, hi):
+    """Map gene at index linearly into [lo, hi]."""
+    return lo + (genome.get_gene(index) / 255.0) * (hi - lo)
 
 
 # =====================================================
@@ -56,16 +54,26 @@ def generate_face_svg(face_id="0"):
     HALF_WIDTH = HEAD_WIDTH / 2
     CENTER_X = 65
 
+    # Face structural anchors (mirror TenderHead.py)
+    ear_top_y    = HEAD_TOP + FACE_HEIGHT * 0.30
+    ear_bottom_y = HEAD_TOP + FACE_HEIGHT * 0.55
+    jaw_y        = HEAD_TOP + FACE_HEIGHT * 0.75
+
     # -------------------------------------------------
-    # 4. EYE PLACEMENT
+    # 4. EYE PLACEMENT  (genes 55–56)
     # -------------------------------------------------
 
     eye_width = HEAD_WIDTH * EYE_WIDTH_RATIO
     eye_scale = eye_width  # normalised eye has width 1
 
-    eye_y = HEAD_TOP + FACE_HEIGHT * EYE_Y_RATIO
+    # Gene 55: eye vertical position — middle third of ear_top..ear_bottom span
+    eye_y = _layout_gene(genome, 55,
+                         ear_top_y + (ear_bottom_y - ear_top_y) * 0.30,
+                         ear_top_y + (ear_bottom_y - ear_top_y) * 0.65)
 
-    spacing = HEAD_WIDTH * EYE_SPACING_RATIO
+    # Gene 56: eye center-to-center half-spacing — as fraction of HEAD_WIDTH
+    eye_spacing_ratio = _layout_gene(genome, 56, 0.16, 0.22)
+    spacing = HEAD_WIDTH * eye_spacing_ratio
 
     left_eye_x = CENTER_X - spacing - eye_width / 2
     right_eye_x = CENTER_X + spacing - eye_width / 2
@@ -85,23 +93,38 @@ def generate_face_svg(face_id="0"):
     )
 
     # -------------------------------------------------
-    # 6. NOSE PLACEMENT
+    # 6. NOSE PLACEMENT  (genes 58–59)
     # -------------------------------------------------
 
     # Nose uses a height-normalised, center-origin coordinate space.
-    # The group is placed at (CENTER_X, nose_top_y) and scaled by nose_h.
-    nose_h = FACE_HEIGHT * NOSE_HEIGHT_RATIO
-    nose_y = HEAD_TOP + FACE_HEIGHT * NOSE_Y_RATIO
+    # The group is placed at (CENTER_X, nose_y) and scaled by nose_h.
 
-    nose_svg = nose.generate_group()
+    # Gene 59: nose height — includes shorter noses
+    nose_h = FACE_HEIGHT * _layout_gene(genome, 59, 0.18, 0.27)
+
+    # Gene 58: nose top — just below eyes, small variation
+    nose_y = _layout_gene(genome, 58,
+                          eye_y + FACE_HEIGHT * 0.02,
+                          eye_y + FACE_HEIGHT * 0.07)
+
+    # Constraint: nose bridge top must not be wider than the inner eye gap
+    max_bridge_x_top = max(0.04, (spacing - eye_width / 2) / nose_h)
+
+    nose_svg = nose.generate_group(max_bridge_x_top=max_bridge_x_top)
 
     # -------------------------------------------------
-    # 7. MOUTH PLACEMENT
+    # 7. MOUTH PLACEMENT  (gene 57)
     # -------------------------------------------------
 
     mouth_width = HEAD_WIDTH * MOUTH_WIDTH_RATIO
     mouth_x     = CENTER_X - mouth_width / 2
-    mouth_y     = HEAD_TOP + FACE_HEIGHT * MOUTH_Y_RATIO
+
+    # Gene 57: mouth vertical — upper jaw area; clamped to never overlap nose
+    mouth_y = _layout_gene(genome, 57,
+                           jaw_y - FACE_HEIGHT * 0.04,
+                           jaw_y + FACE_HEIGHT * 0.06)
+    # Upper lip extends upward from mouth_y by up to mouth_width * 0.22 (max bow_h)
+    mouth_y = max(mouth_y, nose_y + nose_h + mouth_width * 0.22 + 2)
 
     mouth_svg = mouth.generate_group(normalize=True)
 

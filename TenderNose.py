@@ -42,8 +42,8 @@ class TenderNose:
                             ↙ curves back inward
         y = 1.0            -arch_end_x             ← base of nostril / arch endpoint
 
-    Bottom arch:
-        (-arch_end_x, 1.0) ── bows down ── (arch_end_x, 1.0)
+    Bottom arch (floating, decoupled from bridge endpoints):
+        (-arch_span_x, arch_y) ── dips to center ── (arch_span_x, arch_y)
     """
 
     STROKE = 0.005   # stroke width in normalised coords (matches eye line weight at face scale)
@@ -72,8 +72,10 @@ class TenderNose:
           4  bridge_end_y    y where bridge transitions to nostril flare
           5  ala_x           half-width at nostril tip     (widest point)
           6  ala_y           y of the nostril tip
-          7  arch_end_x      half-width at arch endpoint   (inner base)
-          8  arch_depth      how far the bottom arch bows downward
+          7  arch_end_x      half-width of bridge P4 (stays at y=1.0)
+          8  tip_dip         center-dip of the arch below ala_y
+          9  arch_span_x     x half-span of the arch (independent of arch_end_x)
+          (arch_y is derived: equals ala_y, so the arch sits on the same horizontal line as the ala tips)
         """
         return {
             # Bridge widths – each slightly wider than the one above
@@ -89,12 +91,12 @@ class TenderNose:
             'ala_x':        self._gene(5, 0.27, 0.43),
             'ala_y':        self._gene(6, 0.78, 0.93),
 
-            # Arch endpoints: where each bridge line terminates at the bottom
-            # These are inward of the ala (arch_end_x < ala_x)
+            # Bridge P4: where each bridge line terminates (stays at y=1.0)
             'arch_end_x':   self._gene(7, 0.14, 0.26),
 
-            # Depth of the bottom arch (bows downward)
-            'arch_depth':   self._gene(8, 0.02, 0.08),
+            # Floating nose-tip arch — arch_y is derived as ala_y (same horizontal line)
+            'tip_dip':      self._gene(8, 0.02, 0.06),   # center dip below ala_y
+            'arch_span_x':  self._gene(9, 0.18, 0.32),   # x half-span of arch
         }
 
     # =====================================================
@@ -176,17 +178,30 @@ class TenderNose:
 
     def _arch_path(self, cp):
         """
-        Shallow arch at the base connecting the two arch endpoints.
-        Bows slightly downward at center to show the rounded nose tip.
+        Two symmetric cubic beziers forming the nose-tip arch.
+        Floats at arch_y — fully decoupled from the bridge P4 endpoints.
+        The two halves meet at (0, arch_y + tip_dip), a slight center dip
+        that reads as the columella base.
+
+        Left half:  (-arch_span_x, arch_y) → (0, arch_y + tip_dip)
+        Right half: (0, arch_y + tip_dip)  → (arch_span_x, arch_y)
         """
-        aex = cp['arch_end_x']
-        ad  = cp['arch_depth']
-        cx  = aex * 0.45   # control point x (inward of endpoints)
+        asx   = cp['arch_span_x']
+        ay    = cp['ala_y']    # arch sits on the same horizontal line as the ala tips
+        td    = cp['tip_dip']
+        tip_y = ay + td
 
         f = self._f
+
+        lc1 = (-asx * 0.45, ay + td * 0.5)
+        lc2 = (-asx * 0.10, ay + td * 0.9)
+        rc1 = ( asx * 0.10, ay + td * 0.9)
+        rc2 = ( asx * 0.45, ay + td * 0.5)
+
         return (
-            f"M {f(-aex, 1.0)} "
-            f"C {f(-cx, 1.0 + ad)} {f(cx, 1.0 + ad)} {f(aex, 1.0)}"
+            f"M {f(-asx, ay)} "
+            f"C {f(*lc1)} {f(*lc2)} {f(0.0, tip_y)} "
+            f"C {f(*rc1)} {f(*rc2)} {f(asx, ay)}"
         )
 
     # =====================================================
@@ -201,14 +216,16 @@ class TenderNose:
         Red  = anchor points on the path
         Blue = y-level guide lines (show the horizontal slice at each bridge width)
         """
-        bxt = cp['bridge_x_top']
-        bx1 = cp['bridge_x_1']
-        bx2 = cp['bridge_x_2']
-        bx3 = cp['bridge_x_3']
-        bey = cp['bridge_end_y']
-        ax  = cp['ala_x']
-        ay  = cp['ala_y']
-        aex = cp['arch_end_x']
+        bxt   = cp['bridge_x_top']
+        bx1   = cp['bridge_x_1']
+        bx2   = cp['bridge_x_2']
+        bx3   = cp['bridge_x_3']
+        bey   = cp['bridge_end_y']
+        ax    = cp['ala_x']
+        ala_y = cp['ala_y']
+        aex   = cp['arch_end_x']
+        arch_y = ala_y   # derived: arch sits on the ala horizontal line
+        asx    = cp['arch_span_x']
 
         # Derived y positions matching _bridge_path()
         buy = bey * 0.25
@@ -234,28 +251,36 @@ class TenderNose:
   {hline(bx1, buy)}
   {hline(bx2, bmy)}
   {hline(bx3, bey)}
-  {hline(ax,  ay)}
+  {hline(ax,  ala_y)}
   {hline(aex, 1.0)}
+  {hline(asx, arch_y)}
 
   <!-- left anchor points -->
   {dot(-bxt, 0.0)}
   {dot(-bx1, buy)}
   {dot(-bx2, bmy)}
   {dot(-bx3, bey)}
-  {dot(-ax,  ay)}
+  {dot(-ax,  ala_y)}
   {dot(-aex, 1.0)}
+  {dot(-asx, arch_y)}
 
   <!-- right anchor points (mirrored) -->
   {dot(bxt, 0.0)}
   {dot(bx1, buy)}
   {dot(bx2, bmy)}
   {dot(bx3, bey)}
-  {dot(ax,  ay)}
+  {dot(ax,  ala_y)}
   {dot(aex, 1.0)}
+  {dot(asx, arch_y)}
 </g>"""
 
-    def generate_group(self):
+    def generate_group(self, max_bridge_x_top=None):
         cp = self.get_control_points()
+
+        if max_bridge_x_top is not None:
+            cp['bridge_x_top'] = min(cp['bridge_x_top'], max_bridge_x_top)
+            # keep bridge widths monotonically non-decreasing
+            cp['bridge_x_1'] = max(cp['bridge_x_1'], cp['bridge_x_top'])
 
         left_path  = self._bridge_path(cp, side=-1)
         right_path = self._bridge_path(cp, side=+1)
