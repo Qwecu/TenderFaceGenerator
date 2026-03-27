@@ -1,6 +1,7 @@
 from genes import Genome
 from TenderHead import MinimalHeadGenome
 from TenderEyes import MinimalEyeGenome
+from TenderBrows import TenderBrows
 from TenderMouth import TenderMouth
 from TenderNose import TenderNose
 
@@ -32,6 +33,7 @@ def generate_face_svg(face_id="0"):
 
     head      = MinimalHeadGenome(genome)
     right_eye = MinimalEyeGenome(genome)
+    brows     = TenderBrows(genome)
     mouth     = TenderMouth(genome)
     nose      = TenderNose(genome)
 
@@ -78,6 +80,10 @@ def generate_face_svg(face_id="0"):
     left_eye_x = CENTER_X - spacing - eye_width / 2
     right_eye_x = CENTER_X + spacing - eye_width / 2
 
+    # Gene 64: brow lift — how far above eye_y the brow sits (35–55 % of eye_scale)
+    brow_lift = eye_scale * _layout_gene(genome, 64, 0.35, 0.55)
+    brow_y = eye_y - brow_lift
+
     # -------------------------------------------------
     # 5. EYE SVG (normalised)
     # -------------------------------------------------
@@ -91,6 +97,8 @@ def generate_face_svg(face_id="0"):
         clip_id=f"leftEyeClip_{face_id}",
         normalize=True
     )
+
+    brow_svg = brows.generate_group()
 
     # -------------------------------------------------
     # 6. NOSE PLACEMENT  (genes 58–59)
@@ -147,6 +155,16 @@ def generate_face_svg(face_id="0"):
     <!-- RIGHT EYE -->
     <g transform="translate({right_eye_x},{eye_y}) scale({eye_scale},{eye_scale})">
         {right_eye_svg}
+    </g>
+
+    <!-- LEFT BROW -->
+    <g transform="translate({left_eye_x + eye_width},{brow_y}) scale(-{eye_scale},{eye_scale})">
+        {brow_svg}
+    </g>
+
+    <!-- RIGHT BROW -->
+    <g transform="translate({right_eye_x},{brow_y}) scale({eye_scale},{eye_scale})">
+        {brow_svg}
     </g>
 
     <!-- NOSE -->

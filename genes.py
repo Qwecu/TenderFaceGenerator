@@ -174,6 +174,45 @@ class Genome:
         return self.get_gene(52) / 255.0
 
     # -----------------------------------------------------
+    # EYEBROW GENES  (indices 60–63)
+    # -----------------------------------------------------
+
+    def get_brow_gene(self, index):
+        """
+        Returns eyebrow gene at given index (0–3).
+        0 : inner-end height above eye
+        1 : outer-end height above eye
+        2 : arch (extra lift of control point above end-to-end line)
+        3 : stroke thickness multiplier
+        """
+        return self.get_gene(60 + index)
+
+    # -----------------------------------------------------
+    # SEGMENTED EYEBROW GENES  (indices 65–76)
+    # 3 segments × 4 gene types:
+    #   65–67 : Δx per segment
+    #   68–70 : center-line Δy per segment
+    #   71–73 : half-width at inner keypoint and two interior keypoints
+    #   74–76 : tension per segment
+    # -----------------------------------------------------
+
+    def get_brow_dx_gene(self, segment):
+        """Δx gene for brow segment 0–2."""
+        return self.get_gene(65 + segment)
+
+    def get_brow_dy_gene(self, segment):
+        """Center-line Δy gene for brow segment 0–2."""
+        return self.get_gene(68 + segment)
+
+    def get_brow_width_gene(self, keypoint):
+        """Half-width gene for brow keypoints 0–2 (outer tip is always 0)."""
+        return self.get_gene(71 + keypoint)
+
+    def get_brow_tension_gene(self, segment):
+        """Tension gene for brow segment 0–2."""
+        return self.get_gene(74 + segment)
+
+    # -----------------------------------------------------
     # SKIN COLOR
     # -----------------------------------------------------
 
