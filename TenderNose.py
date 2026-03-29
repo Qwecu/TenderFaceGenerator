@@ -15,8 +15,8 @@ from genes import Genome
 #   translate(CENTER_X, nose_top_y) scale(nose_h, nose_h)
 
 
-# Gene indices used by the nose: 70 – 84
-GENE_BASE = 70
+# Gene indices used by the nose: 120 – 143 (10 used, 14 spare)
+GENE_BASE = 120
 
 
 # =====================================================

@@ -28,13 +28,13 @@ from genes import Genome
 #   → Very arched          : Δy ≈ (-0.14, +0.04, +0.14)  — pronounced arch
 #
 # Genes used (via Genome.get_brow_*_gene):
-#   dx gene   0–2  → Δx per segment  (normalised, sum forced to 1)
-#   dy gene   0–2  → center-line Δy per segment
+#   dx gene    0–2 → Δx per segment  (normalised, sum forced to 1)
+#   dy gene    0–2 → center-line Δy per segment
 #   width gene 0–2 → half-width at keypoints 0, 1, 2  (keypoint 3 = tip = 0)
 #   tension gene 0–2 → cubic bezier curviness per segment  (-1 … +1)
 # =====================================================
 
-NUM_SEGS     = 3
+NUM_SEGS      = 3
 TENSION_RATIO = 0.25   # same convention as TenderEyes
 
 CENTER_DY_RANGES = [
@@ -93,18 +93,23 @@ class TenderBrows:
             for i in range(NUM_SEGS)
         ]
 
+    def get_half_widths(self):
+        """Expose computed half-widths so TenderFace.py can query hw[0] for overlap clamping."""
+        return self.compute_half_widths()
+
     # =====================================================
     # PATH BUILDING
     # =====================================================
 
     def generate_group(self):
         """
-        Returns SVG markup for one eyebrow filled shape in normalised (0–1) space.
+        Returns SVG markup for one eyebrow (filled shape + hidden ctrl-points group)
+        in normalised (0–1) space.
         The caller (TenderFace.py) applies translate / scale / mirror transforms.
         """
-        dx      = self.compute_dx()
-        dy      = self.compute_center_dy()
-        hw      = self.compute_half_widths()   # half-widths at 4 keypoints
+        dx       = self.compute_dx()
+        dy       = self.compute_center_dy()
+        hw       = self.compute_half_widths()
         tensions = self.compute_tensions()
 
         # Accumulate center-line keypoints
@@ -115,50 +120,81 @@ class TenderBrows:
             cy.append(cy[-1] + dy[i])
 
         # --------------------------------------------------
-        # Upper edge: inner (x=0) → outer tip (x=1)
+        # Filled shape: upper edge (inner→outer) then lower edge (outer→inner)
         # --------------------------------------------------
         d = f"M {cx[0]:.4f} {cy[0] - hw[0]:.4f} "
 
+        # Collect control-point coordinates for the visualization group
+        cp_upper = []   # list of (c1, c2) tuples per segment, upper edge
+        cp_lower = []   # same for lower edge
+        cp_center = []  # center-line control points
+
         for i in range(NUM_SEGS):
-            t            = tensions[i]
-            ctrl_offset  = t * dx[i] * TENSION_RATIO
+            t           = tensions[i]
+            ctrl_offset = t * dx[i] * TENSION_RATIO
 
             c1x = cx[i] + dx[i] * 0.25
-            c1y = (cy[i] + dy[i] * 0.25 + ctrl_offset
-                   - self._lerp(hw[i], hw[i + 1], 0.25))
+            c1y_ctr = cy[i] + dy[i] * 0.25 + ctrl_offset
 
             c2x = cx[i] + dx[i] * 0.75
-            c2y = (cy[i] + dy[i] * 0.75 + ctrl_offset
-                   - self._lerp(hw[i], hw[i + 1], 0.75))
+            c2y_ctr = cy[i] + dy[i] * 0.75 + ctrl_offset
 
-            ex  = cx[i + 1]
-            ey  = cy[i + 1] - hw[i + 1]   # = cy[-1] when hw[-1] == 0
+            c1y_up  = c1y_ctr - self._lerp(hw[i], hw[i + 1], 0.25)
+            c2y_up  = c2y_ctr - self._lerp(hw[i], hw[i + 1], 0.75)
+            c1y_lo  = c1y_ctr + self._lerp(hw[i], hw[i + 1], 0.25)
+            c2y_lo  = c2y_ctr + self._lerp(hw[i], hw[i + 1], 0.75)
 
-            d += f"C {c1x:.4f} {c1y:.4f} {c2x:.4f} {c2y:.4f} {ex:.4f} {ey:.4f} "
+            ex = cx[i + 1]
+            ey = cy[i + 1] - hw[i + 1]
 
-        # --------------------------------------------------
-        # Lower edge: outer tip → inner, traversed in reverse.
-        # Reversing a cubic  C CP1 CP2 P  →  C CP2 CP1 (start)
-        # --------------------------------------------------
+            d += f"C {c1x:.4f} {c1y_up:.4f} {c2x:.4f} {c2y_up:.4f} {ex:.4f} {ey:.4f} "
+
+            cp_upper.append(((c1x, c1y_up),  (c2x, c2y_up)))
+            cp_lower.append(((c1x, c1y_lo),  (c2x, c2y_lo)))
+            cp_center.append(((c1x, c1y_ctr), (c2x, c2y_ctr)))
+
+        # Lower edge: outer tip → inner (reversed cubics: swap c1↔c2)
         for i in range(NUM_SEGS - 1, -1, -1):
-            t            = tensions[i]
-            ctrl_offset  = t * dx[i] * TENSION_RATIO
-
-            # Control points in forward order, then swapped for the reverse pass
-            lc1x = cx[i] + dx[i] * 0.25
-            lc1y = (cy[i] + dy[i] * 0.25 + ctrl_offset
-                    + self._lerp(hw[i], hw[i + 1], 0.25))
-
-            lc2x = cx[i] + dx[i] * 0.75
-            lc2y = (cy[i] + dy[i] * 0.75 + ctrl_offset
-                    + self._lerp(hw[i], hw[i + 1], 0.75))
-
-            ex   = cx[i]
-            ey   = cy[i] + hw[i]
-
-            # Reversed cubic: swap c1 ↔ c2
+            (lc1x, lc1y), (lc2x, lc2y) = cp_lower[i]
+            ex = cx[i]
+            ey = cy[i] + hw[i]
             d += f"C {lc2x:.4f} {lc2y:.4f} {lc1x:.4f} {lc1y:.4f} {ex:.4f} {ey:.4f} "
 
         d += "Z"
 
-        return f'<path d="{d}" fill="black" stroke="none"/>'
+        # --------------------------------------------------
+        # Control-point visualization group
+        # --------------------------------------------------
+        r  = 0.025   # dot radius in normalised units
+        sw = 0.005   # line stroke-width
+
+        def dot(x, y, color="red"):
+            return f'<circle cx="{x:.4f}" cy="{y:.4f}" r="{r}" fill="{color}" stroke="none"/>'
+
+        def dash(x1, y1, x2, y2):
+            return (f'<line x1="{x1:.4f}" y1="{y1:.4f}" x2="{x2:.4f}" y2="{y2:.4f}"'
+                    f' stroke="red" stroke-width="{sw}" stroke-dasharray="0.04 0.02"/>')
+
+        cp_svg = '<g class="ctrl-points" style="display:none">\n'
+
+        for i in range(NUM_SEGS):
+            (c1x, c1y_ctr), (c2x, c2y_ctr) = cp_center[i]
+
+            # Dashed lines: keypoint → control point (center-line handles)
+            cp_svg += dash(cx[i],     cy[i],     c1x, c1y_ctr)
+            cp_svg += dash(cx[i + 1], cy[i + 1], c2x, c2y_ctr)
+
+            # Blue center-line control point dots
+            cp_svg += dot(c1x, c1y_ctr, "blue")
+            cp_svg += dot(c2x, c2y_ctr, "blue")
+
+        # Red anchor dots: center-line keypoints + upper/lower edge endpoints
+        for i in range(NUM_SEGS + 1):
+            cp_svg += dot(cx[i], cy[i])                  # center-line
+            cp_svg += dot(cx[i], cy[i] - hw[i])          # upper edge
+            if hw[i] > 0:                                 # skip tip (upper == lower)
+                cp_svg += dot(cx[i], cy[i] + hw[i])      # lower edge
+
+        cp_svg += '</g>'
+
+        return f'<path d="{d}" fill="black" stroke="none"/>\n{cp_svg}'

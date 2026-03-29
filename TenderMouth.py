@@ -8,8 +8,8 @@ from genes import Genome
 MOUTH_WIDTH = 100
 # Base coordinate space width (normalized to 1.0 via normalize=True).
 
-# Gene indices used by mouth (60–69, safely away from eye/skin genes)
-GENE_BASE = 60
+# Gene indices used by mouth (80–95): 6 used, 10 spare
+GENE_BASE = 80
 
 
 # =====================================================
