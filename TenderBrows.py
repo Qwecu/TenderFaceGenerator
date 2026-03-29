@@ -21,17 +21,20 @@ from genes import Genome
 # -----------------------------------------------
 #   Δy[0]  inner segment  range (-0.14,  0.00)   usually rises (negative = up)
 #   Δy[1]  middle segment range (-0.04,  0.05)   can continue rising or start falling
-#   Δy[2]  outer segment  range ( 0.02,  0.14)   usually descends back toward reference
+#   Δy[2]  outer segment  range (-0.04,  0.14)   usually descends, occasionally keeps rising
 #
 #   → Classic arched brow : Δy ≈ (-0.12, +0.02, +0.10)  — rises then falls
 #   → Straight / ascending: Δy ≈ (-0.04, -0.03, +0.07)  — gentle monotone slope
 #   → Very arched          : Δy ≈ (-0.14, +0.04, +0.14)  — pronounced arch
+#   → Tail-up / surprised  : Δy ≈ (-0.10, -0.02, -0.03)  — rises all the way to the tip
 #
 # Genes used (via Genome.get_brow_*_gene):
 #   dx gene    0–2 → Δx per segment  (normalised, sum forced to 1)
 #   dy gene    0–2 → center-line Δy per segment
 #   width gene 0–2 → half-width at keypoints 0, 1, 2  (keypoint 3 = tip = 0)
 #   tension gene 0–2 → cubic bezier curviness per segment  (-1 … +1)
+#   tilt gene      → uniform Δy offset added to all segments  (-0.05 … +0.05)
+#                    negative = whole brow rises;  positive = whole brow lowers
 # =====================================================
 
 NUM_SEGS      = 3
@@ -40,7 +43,7 @@ TENSION_RATIO = 0.25   # same convention as TenderEyes
 CENTER_DY_RANGES = [
     (-0.14,  0.00),   # seg 0: inner portion — mostly rises
     (-0.04,  0.05),   # seg 1: arch peak region — can go either way
-    ( 0.02,  0.14),   # seg 2: outer portion — mostly descends
+    (-0.04,  0.14),   # seg 2: outer portion — mostly descends, ~22% chance of rising
 ]
 
 # Half-width (± from center-line) at each keypoint.
@@ -71,11 +74,12 @@ class TenderBrows:
         return [r / total for r in raw]
 
     def compute_center_dy(self):
+        tilt = self.genome.get_brow_tilt_gene()
         result = []
         for i in range(NUM_SEGS):
             norm = self.genome.get_brow_dy_gene(i) / 255.0
             lo, hi = CENTER_DY_RANGES[i]
-            result.append(lo + norm * (hi - lo))
+            result.append(lo + norm * (hi - lo) + tilt)
         return result
 
     def compute_half_widths(self):

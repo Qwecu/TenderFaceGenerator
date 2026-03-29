@@ -199,6 +199,15 @@ class Genome:
         """Tension gene for brow segment 0–2."""
         return self.get_gene(105 + segment)
 
+    def get_brow_tilt_gene(self):
+        """
+        Overall brow tilt gene (index 108).
+        Returns a value in (-0.05, +0.05) that is added to every segment's Δy,
+        making the whole brow rise (negative) or lower (positive) uniformly.
+        Cumulative tip shift = 3 × tilt.
+        """
+        return (self.get_gene(108) / 255.0) * 0.10 - 0.05
+
     # -----------------------------------------------------
     # SKIN COLOR
     # -----------------------------------------------------
