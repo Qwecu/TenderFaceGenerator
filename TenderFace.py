@@ -10,8 +10,7 @@ from TenderNose import TenderNose
 # FACE PROPORTIONS
 # =====================================================
 
-EYE_WIDTH_RATIO   = 0.28   # eye width relative to head width (fixed)
-MOUTH_WIDTH_RATIO = 0.38   # mouth width relative to head width (fixed)
+EYE_WIDTH_RATIO = 0.28   # eye width relative to head width (fixed)
 
 
 def _layout_gene(genome, index, lo, hi):
@@ -142,13 +141,16 @@ def generate_face_svg(face_id="0"):
     # 7. MOUTH PLACEMENT  (gene 57)
     # -------------------------------------------------
 
-    mouth_width = HEAD_WIDTH * MOUTH_WIDTH_RATIO
+    # Genes 71+72 averaged → bell-curve distribution, extremes are rarer
+    mouth_width_norm  = (genome.get_gene(71) + genome.get_gene(72)) / 2 / 255.0
+    mouth_width_ratio = 0.28 + mouth_width_norm * 0.20   # 0.28–0.48 of HEAD_WIDTH
+    mouth_width = HEAD_WIDTH * mouth_width_ratio
     mouth_x     = CENTER_X - mouth_width / 2
 
     # Gene 66: mouth vertical — upper jaw area; clamped to never overlap nose
     mouth_y = _layout_gene(genome, 66,
-                           jaw_y - FACE_HEIGHT * 0.04,
-                           jaw_y + FACE_HEIGHT * 0.06)
+                           jaw_y - FACE_HEIGHT * 0.08,
+                           jaw_y + FACE_HEIGHT * 0.01)
     # Upper lip extends upward from mouth_y by up to mouth_width * 0.22 (max bow_h)
     mouth_y = max(mouth_y, nose_y + nose_h + mouth_width * 0.22 + 2)
 
