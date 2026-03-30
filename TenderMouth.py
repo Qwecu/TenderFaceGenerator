@@ -23,7 +23,11 @@ MOUTH_WIDTH = 100
 # 91: inner raw width  }
 # 92: mid   raw width  }
 # 93: inner_arch    upward bow of inner segments; activates top 30% of gene range (0…−0.04w)
+# 94: bow_sharpness Cupid's bow: 0 = smooth arch, 1 = sharp V point at each peak
+# 95: lower_fullness lower lip center depth relative to sides (0.8x … 1.2x lower_h)
 GENE_BASE = 80
+
+LIP_OVERLAP = 0.020   # fraction of w; both lips extend this far past the midline corners
 
 
 # =====================================================
@@ -167,11 +171,12 @@ class TenderMouth:
     # MIDLINE PATHS
     # =====================================================
 
-    def _midline_fwd(self, w):
-        """5-segment midline path from left corner to right corner, shifted by corner_lift."""
+    def _midline_fwd(self, w, y_offset=0):
+        """5-segment midline path from left corner to right corner.
+        y_offset shifts all y coordinates (positive = down)."""
         g = self._midline_geometry(w)
         x1, x2, x4, x5 = g['x1'], g['x2'], g['x4'], g['x5']
-        cl = g['corner_lift']
+        cl = g['corner_lift'] + y_offset
         ia = g['inner_arch']
         cy, py, vy = g['corner_y'] + cl, g['peak_y'] + cl, g['valley_y'] + cl
 
@@ -183,11 +188,12 @@ class TenderMouth:
         d += self._seg_fwd(x5, cy, w,  cl)                # outer_right
         return d
 
-    def _midline_rev(self, w):
-        """Same midline traversed right → left, shifted by corner_lift."""
+    def _midline_rev(self, w, y_offset=0):
+        """Same midline traversed right → left.
+        y_offset shifts all y coordinates (positive = down)."""
         g = self._midline_geometry(w)
         x1, x2, x4, x5 = g['x1'], g['x2'], g['x4'], g['x5']
-        cl = g['corner_lift']
+        cl = g['corner_lift'] + y_offset
         ia = g['inner_arch']
         cy, py, vy = g['corner_y'] + cl, g['peak_y'] + cl, g['valley_y'] + cl
 
@@ -208,53 +214,81 @@ class TenderMouth:
     # LIP PATH CONSTRUCTION
     # =====================================================
 
-    def build_upper_lip(self, w, bow_h, valley_h, bow_x, ctrl, corner_lift):
+    def build_upper_lip(self, w, bow_h, valley_h, bow_x, ctrl, corner_lift, bow_sharpness):
         """
-        Upper lip: Cupid's bow on top, midline as base.
-        All y values offset by corner_lift so the lip follows the corner position.
+        Upper lip: Cupid's bow on top, straight base below the midline.
+        bow_sharpness: 0 = smooth arch, 1 = sharp V point at each bow peak.
+        The bottom edge sits LIP_OVERLAP below the midline corners so the midline
+        is visually embedded within the lip region.
         """
-        cx   = w * 0.5
-        lp_x = w * bow_x
-        rp_x = w * (1 - bow_x)
-        cl   = corner_lift
+        cx      = w * 0.5
+        lp_x    = w * bow_x
+        rp_x    = w * (1 - bow_x)
+        cl      = corner_lift
+        smooth  = 1.0 - bow_sharpness   # 1 = smooth, 0 = sharp
+        base_y  = cl + w * LIP_OVERLAP  # bottom edge, below midline corners
 
+        # Sharpness only affects the control points at the bow peaks:
+        # c2 of the rising segment and c1 of the leaving segment meet at the peak.
+        # When smooth=0 both collapse to the peak point, creating a cusp.
+
+        # Corner → left peak
         seg1 = (f"C {ctrl:.4f} {cl - bow_h*0.5:.4f} "
-                f"{lp_x-ctrl:.4f} {cl - bow_h:.4f} "
+                f"{lp_x - ctrl*smooth:.4f} {cl - bow_h:.4f} "
                 f"{lp_x:.4f} {cl - bow_h:.4f} ")
-        seg2 = (f"C {lp_x+ctrl:.4f} {cl - bow_h:.4f} "
-                f"{cx-ctrl:.4f} {cl - valley_h:.4f} "
+        # Left peak → center valley
+        seg2 = (f"C {lp_x + ctrl*smooth:.4f} {cl - bow_h:.4f} "
+                f"{cx - ctrl:.4f} {cl - valley_h:.4f} "
                 f"{cx:.4f} {cl - valley_h:.4f} ")
-        seg3 = (f"C {cx+ctrl:.4f} {cl - valley_h:.4f} "
-                f"{rp_x-ctrl:.4f} {cl - bow_h:.4f} "
+        # Center valley → right peak (mirror of seg2)
+        seg3 = (f"C {cx + ctrl:.4f} {cl - valley_h:.4f} "
+                f"{rp_x - ctrl*smooth:.4f} {cl - bow_h:.4f} "
                 f"{rp_x:.4f} {cl - bow_h:.4f} ")
-        seg4 = (f"C {rp_x+ctrl:.4f} {cl - bow_h:.4f} "
-                f"{w-ctrl:.4f} {cl - bow_h*0.5:.4f} "
+        # Right peak → corner (mirror of seg1)
+        seg4 = (f"C {rp_x + ctrl*smooth:.4f} {cl - bow_h:.4f} "
+                f"{w - ctrl:.4f} {cl - bow_h*0.5:.4f} "
                 f"{w:.4f} {cl:.4f} ")
 
-        midline_base = self._strip_move(self._midline_rev(w))
+        # Base: midline shape shifted down by LIP_OVERLAP so midline sits inside the lip
+        overlap     = w * LIP_OVERLAP
+        midline_base = self._strip_move(self._midline_rev(w, y_offset=overlap))
+        # Bow ends at (w, cl); bridge down to shifted midline start (w, cl+overlap), then trace back
+        return (f"M 0.0000 {cl:.4f} {seg1}{seg2}{seg3}{seg4}"
+                f"L {w:.4f} {cl + overlap:.4f} {midline_base} Z")
 
-        return f"M 0.0000 {cl:.4f} {seg1}{seg2}{seg3}{seg4}{midline_base} Z"
-
-    def build_lower_lip(self, w, lower_h, l_ctrl, corner_lift):
+    def build_lower_lip(self, w, lower_h, l_ctrl, corner_lift, lower_fullness):
         """
-        Lower lip: midline as top edge, lower arc as base.
-        Arc control points sit lower_h below the (lifted) corners.
+        Lower lip: straight top edge slightly above midline corners, two-segment arc below.
+        lower_fullness: gene 0–1 controlling how deep the center is relative to the sides
+        (range 0.8x … 1.2x of lower_h).
         """
-        midline_top = self._strip_move(self._midline_fwd(w))
-        cl  = corner_lift
-        arc_y = cl + lower_h   # arc bottom is lower_h below the corners
+        cl          = corner_lift
+        overlap     = w * LIP_OVERLAP
+        top_y       = cl - overlap          # shifted-midline corner level
+        cx          = w * 0.5
+        center_h    = lower_h * (0.8 + lower_fullness * 0.4)
+        center_y    = cl + center_h
+        arc_ctrl_y  = cl + lower_h          # side control-point y for each half-arc
 
-        lower_arc_rev = (f"C {w-l_ctrl:.4f} {arc_y:.4f} "
-                         f"{l_ctrl:.4f} {arc_y:.4f} "
-                         f"0.0000 {cl:.4f} ")
+        # Top edge: midline shape shifted up by LIP_OVERLAP
+        midline_top = self._strip_move(self._midline_fwd(w, y_offset=-overlap))
 
-        return f"M 0.0000 {cl:.4f} {midline_top} {lower_arc_rev} Z"
+        # Two symmetric cubic beziers meeting at the center-bottom point
+        right_arc = (f"C {w - l_ctrl:.4f} {arc_ctrl_y:.4f} "
+                     f"{cx + l_ctrl*0.5:.4f} {center_y:.4f} "
+                     f"{cx:.4f} {center_y:.4f} ")
+        left_arc  = (f"C {cx - l_ctrl*0.5:.4f} {center_y:.4f} "
+                     f"{l_ctrl:.4f} {arc_ctrl_y:.4f} "
+                     f"0.0000 {top_y:.4f} ")
+
+        return f"M 0.0000 {top_y:.4f} {midline_top} {right_arc}{left_arc} Z"
 
     # =====================================================
     # CONTROL-POINT VISUALIZATION
     # =====================================================
 
-    def _ctrl_points_group(self, w, bow_h, valley_h, bow_x, ctrl, lower_h, l_ctrl):
+    def _ctrl_points_group(self, w, bow_h, valley_h, bow_x, ctrl, lower_h, l_ctrl,
+                           bow_sharpness, lower_fullness):
         """
         Hidden SVG group (class="ctrl-points") showing all bezier handles.
         Red  = anchor points on the path.
@@ -300,13 +334,19 @@ class TenderMouth:
         for ax, ay in midline_anchors:
             out += dot(ax, ay)
 
-        # ---- Upper lip: anchor points only ----
-        for ax, ay in [(0, cl), (lp_x, cl - bow_h), (cx, cl - valley_h), (rp_x, cl - bow_h), (w, cl)]:
+        # ---- Upper lip: anchor points only (no blue — too cluttered) ----
+        base_y   = cl + w * LIP_OVERLAP
+        for ax, ay in [(0, cl), (lp_x, cl - bow_h), (cx, cl - valley_h),
+                       (rp_x, cl - bow_h), (w, cl),
+                       (w, base_y), (0, base_y)]:
             out += dot(ax, ay)
 
         # ---- Lower lip: anchor points only ----
-        # (corners already drawn above; just add the implicit bottom center)
-        out += dot(w * 0.5, cl + lower_h)
+        top_y    = cl - w * LIP_OVERLAP
+        center_h = lower_h * (0.8 + lower_fullness * 0.4)
+        center_y = cl + center_h
+        for ax, ay in [(0, top_y), (w, top_y), (cx, center_y)]:
+            out += dot(ax, ay)
 
         out += '</g>'
         return out
@@ -320,8 +360,8 @@ class TenderMouth:
         w = 1.0 if normalize else MOUTH_WIDTH
 
         # Upper lip parameters
-        bow_h    = w * (0.10 + self._gene(0) * 0.12)
-        valley_h = bow_h * (0.20 + self._gene(1) * 0.50)
+        bow_h    = w * (0.06 + self._gene(0) * 0.24)   # 0.06w–0.30w
+        valley_h = bow_h * (0.15 + self._gene(1) * 0.85)  # 0.15–1.00 of bow_h
         bow_x    = 0.22 + self._gene(3) * 0.16
         ctrl     = w * (0.06 + self._gene(4) * 0.08)
 
@@ -329,15 +369,19 @@ class TenderMouth:
         lower_h  = w * (0.09 + self._gene(2) * 0.13)
         l_ctrl   = w * (0.20 + self._gene(5) * 0.20)
 
+        bow_sharpness  = self._gene(14)
+        lower_fullness = self._gene(15)
+
         lip_color = self.get_lip_color()
         stroke_w  = w * 0.008
 
         corner_lift = self._midline_geometry(w)['corner_lift']
 
-        upper   = self.build_upper_lip(w, bow_h, valley_h, bow_x, ctrl, corner_lift)
-        lower   = self.build_lower_lip(w, lower_h, l_ctrl, corner_lift)
+        upper   = self.build_upper_lip(w, bow_h, valley_h, bow_x, ctrl, corner_lift, bow_sharpness)
+        lower   = self.build_lower_lip(w, lower_h, l_ctrl, corner_lift, lower_fullness)
         midline = self._midline_fwd(w)
-        cp_group = self._ctrl_points_group(w, bow_h, valley_h, bow_x, ctrl, lower_h, l_ctrl)
+        cp_group = self._ctrl_points_group(w, bow_h, valley_h, bow_x, ctrl, lower_h, l_ctrl,
+                                           bow_sharpness, lower_fullness)
 
         return f"""
 <!-- Upper lip -->
