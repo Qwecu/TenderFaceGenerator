@@ -52,6 +52,7 @@ HALF_WIDTH_RANGES = [
     (0.08, 0.18),   # keypoint 0: inner end  (widest)
     (0.05, 0.12),   # keypoint 1: after seg 0
     (0.01, 0.05),   # keypoint 2: after seg 1
+    (0.01, 0.05),   # keypoint 3: after seg 2
     # keypoint 3: 0  (always)
 ]
 
@@ -84,11 +85,10 @@ class TenderBrows:
 
     def compute_half_widths(self):
         w = []
-        for i in range(NUM_SEGS):   # 3 interior keypoints
+        for i in range(len(HALF_WIDTH_RANGES)):
             norm = self.genome.get_brow_width_gene(i) / 255.0
             lo, hi = HALF_WIDTH_RANGES[i]
             w.append(lo + norm * (hi - lo))
-        w.append(0.0)               # outer tip always tapers to a point
         return w
 
     def compute_tensions(self):

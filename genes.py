@@ -192,7 +192,9 @@ class Genome:
         return self.get_gene(99 + segment)
 
     def get_brow_width_gene(self, keypoint):
-        """Half-width gene for brow keypoints 0–2 (outer tip is always 0)."""
+        """Half-width gene for brow keypoints 0–3. Keypoint 3 uses gene 109 (spare)."""
+        if keypoint == 3:
+            return self.get_gene(109)
         return self.get_gene(102 + keypoint)
 
     def get_brow_tension_gene(self, segment):

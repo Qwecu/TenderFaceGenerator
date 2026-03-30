@@ -17,7 +17,7 @@ MOUTH_WIDTH = 100
 # 85: l_ctrl       lower lip bezier tension
 # 86: outer_dy     midline corner deviation (small ±)
 # 87: peak_dy      midline Cupid's bow peak height
-# 88: valley_depth midline center dip below peaks
+# 88: valley_offset midline center offset: negative = rises above peaks, positive = dips below
 GENE_BASE = 80
 
 
@@ -91,8 +91,9 @@ class TenderMouth:
         # Gene 7: midline Cupid's bow peak height (0.01 … 0.09 of w, upward = negative y)
         peak_y = -w * (0.01 + self._gene(7) * 0.08)
 
-        # Gene 8: center valley depth below the peaks (0.01 … 0.08 of w, downward = positive)
-        valley_y = peak_y + w * (0.01 + self._gene(8) * 0.07)
+        # Gene 8: center offset relative to peaks — negative rises above peaks, positive dips below
+        # Range: −0.03w (center arches up) … +0.07w (center dips down, classic Cupid's bow)
+        valley_y = peak_y + w * (-0.03 + self._gene(8) * 0.10)
 
         return dict(x1=x1, x2=x2, x4=x4, x5=x5,
                     corner_y=corner_y, peak_y=peak_y, valley_y=valley_y)
