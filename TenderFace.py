@@ -152,7 +152,7 @@ def generate_face_svg(face_id="0"):
                            jaw_y - FACE_HEIGHT * 0.08,
                            jaw_y + FACE_HEIGHT * 0.01)
     # Upper lip extends upward from mouth_y by up to mouth_width * 0.22 (max bow_h)
-    mouth_y = max(mouth_y, nose_y + nose_h + mouth_width * 0.22 + 2)
+    mouth_y = max(mouth_y, nose_y + nose_h + mouth_width * 0.32 + 3)
 
     mouth_svg = mouth.generate_group(normalize=True)
 
