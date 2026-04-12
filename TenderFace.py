@@ -48,11 +48,10 @@ def generate_face_svg(face_id="0"):
 
     FACE_HEIGHT = 120
     HEAD_TOP = 20
-    HEAD_WIDTH_RATIO = 0.65
 
     HEAD_BOTTOM = HEAD_TOP + FACE_HEIGHT
-    HEAD_WIDTH = FACE_HEIGHT * HEAD_WIDTH_RATIO
-    HALF_WIDTH = HEAD_WIDTH / 2
+    HALF_WIDTH  = head.get_half_width()     # gene-driven face width
+    HEAD_WIDTH  = HALF_WIDTH * 2
     CENTER_X = 65
 
     # Face structural anchors (mirror TenderHead.py)
@@ -118,19 +117,47 @@ def generate_face_svg(face_id="0"):
     brow_y     = eye_y - brow_lift
 
     # -------------------------------------------------
-    # 6. NOSE PLACEMENT  (genes 58–59)
+    # 6. MOUTH PLACEMENT  (genes 66, 71–72)
     # -------------------------------------------------
 
-    # Nose uses a height-normalised, center-origin coordinate space.
-    # The group is placed at (CENTER_X, nose_y) and scaled by nose_h.
+    # Mouth is anchored first; nose fits into the space above it.
+    jaw_y_head, chin_body_y, jaw_w, chin_body_w = head.get_chin_region()
+    mouth_midpoint = (jaw_y_head + chin_body_y) / 2
+    mouth_y = mouth_midpoint + _layout_gene(genome, 66,
+                                            -FACE_HEIGHT * 0.03,
+                                             FACE_HEIGHT * 0.03)
 
-    # Gene 68: nose height — includes shorter noses
-    nose_h = FACE_HEIGHT * _layout_gene(genome, 68, 0.18, 0.27)
+    # Face half-width at mouth_y: linearly interpolate between jaw and chin_body
+    t_mouth = max(0.0, min(1.0,
+                  (mouth_y - jaw_y_head) / max(chin_body_y - jaw_y_head, 1.0)))
+    face_hw_at_mouth = jaw_w + (chin_body_w - jaw_w) * t_mouth
 
-    # Gene 67: nose top — just below eyes, small variation
-    nose_y = _layout_gene(genome, 67,
-                          eye_y + FACE_HEIGHT * 0.02,
-                          eye_y + FACE_HEIGHT * 0.07)
+    # Mouth width: fraction of face width at mouth level (gene 71+72, max < face width)
+    mouth_width_norm = (genome.get_gene(71) + genome.get_gene(72)) / 2 / 255.0
+    mouth_width = face_hw_at_mouth * 2 * (0.40 + mouth_width_norm * 0.45)  # 0.40–0.85×
+    mouth_x     = CENTER_X - mouth_width / 2
+
+    mouth_svg = mouth.generate_group(normalize=True)
+
+    # -------------------------------------------------
+    # 7. NOSE PLACEMENT  (genes 67–68)
+    # -------------------------------------------------
+
+    # Nose fills the gap between eye bottom and upper lip top.
+    # Small fixed clearances; nose_h is sized from FACE_HEIGHT then clamped to fit.
+    nose_region_top    = eye_y + eye_scale * 0.20
+    nose_region_bottom = mouth_y - mouth_width * 0.15 - 3
+    available_h = max(nose_region_bottom - nose_region_top, 1.0)
+
+    # Gene 68: nose height as fraction of FACE_HEIGHT (same range as before),
+    # clamped so it never overflows the available space.
+    nose_h = FACE_HEIGHT * _layout_gene(genome, 68, 0.15, 0.26)
+    nose_h = max(1.0, min(nose_h, available_h - 1))
+
+    # Gene 67: nose top — small variation within the available gap
+    nose_y_lo = nose_region_top
+    nose_y_hi = max(nose_region_top, nose_region_bottom - nose_h)
+    nose_y = _layout_gene(genome, 67, nose_y_lo, nose_y_hi)
 
     # Constraint: nose bridge top must not be wider than the inner eye gap
     max_bridge_x_top = max(0.04, (spacing - eye_width / 2) / nose_h)
@@ -138,26 +165,7 @@ def generate_face_svg(face_id="0"):
     nose_svg = nose.generate_group(max_bridge_x_top=max_bridge_x_top)
 
     # -------------------------------------------------
-    # 7. MOUTH PLACEMENT  (gene 57)
-    # -------------------------------------------------
-
-    # Genes 71+72 averaged → bell-curve distribution, extremes are rarer
-    mouth_width_norm  = (genome.get_gene(71) + genome.get_gene(72)) / 2 / 255.0
-    mouth_width_ratio = 0.28 + mouth_width_norm * 0.20   # 0.28–0.48 of HEAD_WIDTH
-    mouth_width = HEAD_WIDTH * mouth_width_ratio
-    mouth_x     = CENTER_X - mouth_width / 2
-
-    # Gene 66: mouth vertical — upper jaw area; clamped to never overlap nose
-    mouth_y = _layout_gene(genome, 66,
-                           jaw_y - FACE_HEIGHT * 0.08,
-                           jaw_y + FACE_HEIGHT * 0.01)
-    # Upper lip extends upward from mouth_y by up to mouth_width * 0.22 (max bow_h)
-    mouth_y = max(mouth_y, nose_y + nose_h + mouth_width * 0.32 + 3)
-
-    mouth_svg = mouth.generate_group(normalize=True)
-
-    # -------------------------------------------------
-    # 8. COMPOSITE
+    # 8. COMPOSITE  (eyes → mouth → nose → head already generated above)
     # -------------------------------------------------
 
     return f"""
