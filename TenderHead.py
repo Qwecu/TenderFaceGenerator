@@ -17,7 +17,7 @@ HEAD_TOP    = 20
 # 124: chin_floor_ratio chin-floor half-width / max_hw               (0.14–0.48)
 # 125: cheek_y         cheekbone vertical position                  (0.28–0.48)
 # 126: jaw_y           jaw-angle vertical position                  (0.60–0.78)
-# 127: chin_y          chin tip vertical position                   (0.88–1.00)
+# 127: chin_y          chin tip vertical position                   (0.87–0.97)
 # 128: temple_y        temple vertical position                     (0.08–0.22)
 # 129: crown_arch      crown horizontal spread                      (0.30–0.85)
 # 130: chin_curve      0 = pointed/sharp, 1 = round/flat            (0.0–1.0)
@@ -60,7 +60,7 @@ class MinimalHeadGenome:
         """
         max_hw       = self.get_half_width()
         jaw_y        = HEAD_TOP + FACE_HEIGHT * self._g(6, 0.60, 0.78)
-        chin_y       = HEAD_TOP + FACE_HEIGHT * self._g(7, 0.88, 1.00)
+        chin_y       = HEAD_TOP + FACE_HEIGHT * self._g(7, 0.87, 0.97)
         chin_body_y  = jaw_y + (chin_y - jaw_y) * self._g(13, 0.20, 0.55)
         jaw_w        = max_hw * self._g(3, 0.50, 0.90)
         chin_body_w  = max_hw * self._g(12, 0.28, 0.65)
@@ -131,7 +131,7 @@ class MinimalHeadGenome:
         temple_y    = ty + FACE_HEIGHT * self._g(8,  0.08, 0.22)
         cheek_y     = ty + FACE_HEIGHT * self._g(5,  0.28, 0.48)
         jaw_y       = ty + FACE_HEIGHT * self._g(6,  0.60, 0.78)
-        chin_y      = ty + FACE_HEIGHT * self._g(7,  0.88, 1.00)
+        chin_y      = ty + FACE_HEIGHT * self._g(7,  0.87, 0.97)
         chin_body_y = jaw_y + (chin_y - jaw_y) * self._g(13, 0.20, 0.55)
 
         crown_arch  = self._g(9,  0.30, 0.85)
@@ -174,14 +174,28 @@ class MinimalHeadGenome:
         # Clamp all handles to their segment bounding boxes — prevents loops
         H = self._clamp_handles(H, K)
 
+        # After clamping, H[4]'s c2 can end up at K[5][0] (when chin_floor_w ≈
+        # chin_body_w the Catmull tangent falls outside the bbox and gets clipped
+        # to the edge, producing a nearly-vertical arrival at the chin floor).
+        # Enforce a minimum horizontal clearance so the curve always arrives at
+        # an angle.
+        c1_4, c2_4 = H[4]
+        h_gap = max(2.0, (chin_body_w - chin_floor_w) * 0.45)
+        h_gap = min(h_gap, chin_body_w - chin_floor_w) if chin_body_w > chin_floor_w else 2.0
+        H[4] = (c1_4, (max(c2_4[0], K[5][0] + h_gap), c2_4[1]))
+
         # ---- Build SVG path ----
         # Right half: K[0] → … → K[5] (chin floor right corner)
         d = f"M {cx:.2f} {ty:.2f} "
         for (c1, c2), (kx, ky) in zip(H, K[1:]):
             d += f"C {c1[0]:.2f} {c1[1]:.2f} {c2[0]:.2f} {c2[1]:.2f} {kx:.2f} {ky:.2f} "
 
-        # Flat chin bottom: straight line to left chin floor corner
-        d += f"L {cx - chin_floor_w:.2f} {chin_y:.2f} "
+        # Curved chin bottom: bezier from right to left, dipping at centre
+        # chin_curve=0 (pointed) → deeper dip; chin_curve=1 (round/flat) → shallower
+        chin_drop = 1.5 + (1.0 - chin_curve) * 5.0
+        d += (f"C {cx + chin_floor_w * 0.35:.2f} {chin_y + chin_drop:.2f} "
+              f"  {cx - chin_floor_w * 0.35:.2f} {chin_y + chin_drop:.2f} "
+              f"  {cx - chin_floor_w:.2f} {chin_y:.2f} ")
 
         # Left half: mirror and reverse — traverse K[4]→K[3]→…→K[0]
         # For segment K[i]→K[i+1] with handles (c1, c2):
