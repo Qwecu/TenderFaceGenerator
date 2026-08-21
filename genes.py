@@ -214,6 +214,42 @@ class Genome:
     # SKIN COLOR
     # -----------------------------------------------------
 
+    # -----------------------------------------------------
+    # CROSSOVER
+    # -----------------------------------------------------
+
+    @classmethod
+    def make_child(cls, mother, father):
+        """
+        Produce a child genome by crossing over each parent's two chromosomes.
+
+        For each parent a crossover point n is picked at random, and a random
+        starting chromosome (0 or 1) is chosen.  Genes 0..n-1 come from the
+        starting chromosome; genes n..end come from the other one.  The child
+        receives one such mixed chromosome from the mother and one from the
+        father.  Which of those becomes chromosome1 vs chromosome2 is also
+        randomised.
+        """
+        def _crossover(parent):
+            n     = random.randint(0, parent.num_genes - 1)
+            start = random.randint(0, 1)
+            a = parent.chromosome1 if start == 0 else parent.chromosome2
+            b = parent.chromosome2 if start == 0 else parent.chromosome1
+            return a[:n] + b[n:]
+
+        mother_chr = _crossover(mother)
+        father_chr = _crossover(father)
+
+        child = cls.__new__(cls)
+        child.num_genes = mother.num_genes
+
+        if random.randint(0, 1) == 0:
+            child.chromosome1, child.chromosome2 = mother_chr, father_chr
+        else:
+            child.chromosome1, child.chromosome2 = father_chr, mother_chr
+
+        return child
+
     def get_skin_color(self):
         """
         Returns an RGB triple interpolated smoothly across SKIN_PALETTE.

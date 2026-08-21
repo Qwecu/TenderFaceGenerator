@@ -22,13 +22,14 @@ def _layout_gene(genome, index, lo, hi):
 # FULL FACE GENERATION
 # =====================================================
 
-def generate_face_svg(face_id="0"):
+def generate_face_svg(face_id="0", genome=None):
 
     # -------------------------------------------------
     # 1. SHARED GENOME
     # -------------------------------------------------
 
-    genome = Genome(num_genes=200)
+    if genome is None:
+        genome = Genome(num_genes=200)
 
     head      = MinimalHeadGenome(genome)
     right_eye = MinimalEyeGenome(genome)
