@@ -127,6 +127,34 @@ class MinimalEyeGenome:
 
         return upper, lower
 
+    def vertical_extent(self):
+        """
+        (top, bottom) of everything the eye draws, in units of eye width,
+        relative to the inner-corner baseline (y = 0).  top is negative.
+
+        Includes the eyelid crease, which sits above the upper lid — the face
+        layout reserves exactly this much room instead of guessing a constant.
+        """
+        upper, lower = self.compute_dy()
+
+        fold_offset  = EYE_WIDTH * FOLD_RATIO
+        desired_gaps = [fold_offset, fold_offset * 1.4, fold_offset * 1.2,
+                        fold_offset * 0.9, fold_offset * 0.7]
+
+        top = -desired_gaps[0]          # crease origin, above the inner corner
+        cs = 0.0
+        for i, v in enumerate(upper):
+            cs += v
+            top = min(top, cs, cs - desired_gaps[i + 1])
+
+        bottom = 0.0
+        cs = 0.0
+        for v in lower:
+            cs += v
+            bottom = max(bottom, cs)
+
+        return top / EYE_WIDTH, bottom / EYE_WIDTH
+
     # =====================================================
     # SEGMENT DATA
     # =====================================================

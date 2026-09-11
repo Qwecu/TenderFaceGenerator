@@ -101,6 +101,22 @@ class TenderBrows:
         """Expose computed half-widths so TenderFace.py can query hw[0] for overlap clamping."""
         return self.compute_half_widths()
 
+    def vertical_extent(self):
+        """
+        (top, bottom) of the filled brow shape in normalised units (eye width
+        = 1), relative to the brow reference line.  top is negative.
+        """
+        dy = self.compute_center_dy()
+        hw = self.compute_half_widths()
+
+        cy = [0.0]
+        for v in dy:
+            cy.append(cy[-1] + v)
+
+        top    = min(cy[i] - hw[i] for i in range(len(cy)))
+        bottom = max(cy[i] + hw[i] for i in range(len(cy)))
+        return top, bottom
+
     # =====================================================
     # PATH BUILDING
     # =====================================================

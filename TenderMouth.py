@@ -121,6 +121,25 @@ class TenderMouth:
                     corner_y=corner_y, peak_y=peak_y, valley_y=valley_y,
                     corner_lift=corner_lift, inner_arch=inner_arch)
 
+    def vertical_extent(self):
+        """
+        (top, bottom) of the drawn mouth in normalised units (mouth width = 1),
+        relative to the mouth reference line.  top is negative.
+
+        Mirrors the values generate_group() derives, so the face layout
+        reserves the real height of the Cupid's bow and lower lip.
+        """
+        g  = self._midline_geometry(1.0)
+        cl = g['corner_lift']
+
+        bow_h    = 0.06 + self._gene(0) * 0.24
+        lower_h  = 0.09 + self._gene(2) * 0.13
+        center_h = lower_h * (0.8 + self._gene(15) * 0.4)
+
+        top    = cl - bow_h
+        bottom = cl + max(center_h, g['corner_y'] + LIP_OVERLAP)
+        return top, bottom
+
     # =====================================================
     # LOW-LEVEL BEZIER HELPERS
     # =====================================================

@@ -15,8 +15,11 @@ from genes import Genome
 #   translate(CENTER_X, nose_top_y) scale(nose_h, nose_h)
 
 
-# Gene indices used by the nose: 120 – 143 (10 used, 14 spare)
-GENE_BASE = 120
+# Gene indices used by the nose: 140 – 159 (10 used, 10 spare)
+# NOTE: must not overlap the head block (120–139) — they collided at 120
+# previously, which tied nose width to face width and wasted half the
+# nose's variation.
+GENE_BASE = 140
 
 
 # =====================================================
