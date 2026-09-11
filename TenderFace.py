@@ -4,6 +4,7 @@ from TenderEyes import MinimalEyeGenome
 from TenderBrows import TenderBrows
 from TenderMouth import TenderMouth
 from TenderNose import TenderNose
+from TenderHair import TenderHair
 
 
 # =====================================================
@@ -153,6 +154,7 @@ def compute_layout(genome):
     brows = TenderBrows(genome)
     mouth = TenderMouth(genome)
     nose  = TenderNose(genome)
+    hair  = TenderHair(genome)
 
     hg          = head.geometry()
     face_height = hg['face_height']
@@ -244,7 +246,8 @@ def compute_layout(genome):
     right_eye_x = CENTER_X + eye_gap / 2
 
     return {
-        'head': head, 'eye': eye, 'brows': brows, 'mouth': mouth, 'nose': nose,
+        'head': head, 'eye': eye, 'brows': brows, 'mouth': mouth,
+        'nose': nose, 'hair': hair,
         'eye_w': eye_w, 'eye_gap': eye_gap, 'brow_w': brow_w,
         'mouth_w': mouth_w, 'nose_h': nose_h,
         'left_eye_x': left_eye_x, 'right_eye_x': right_eye_x,
@@ -281,6 +284,10 @@ def generate_face_svg(face_id="0", genome=None):
     mouth_svg = L['mouth'].generate_group(normalize=True)
     nose_svg  = L['nose'].generate_group(max_bridge_x_top=L['max_bridge_x_top'])
 
+    # Hair sandwiches the head: the mass behind it, the cap in front.
+    hair_back_svg  = L['hair'].generate_back(L['head'], L['brow_top_y'])
+    hair_front_svg = L['hair'].generate_front(L['head'], L['brow_top_y'])
+
     right_eye_svg = L['eye'].generate_group(clip_id=f"rightEyeClip_{face_id}",
                                             normalize=True)
     left_eye_svg  = L['eye'].generate_group(clip_id=f"leftEyeClip_{face_id}",
@@ -295,8 +302,14 @@ def generate_face_svg(face_id="0", genome=None):
 <svg xmlns="http://www.w3.org/2000/svg"
      viewBox="0 0 {VIEW_W} {VIEW_H}">
 
+    <!-- HAIR (mass, behind the head) -->
+    {hair_back_svg}
+
     <!-- HEAD -->
     {head_svg}
+
+    <!-- HAIR (cap, over the skull) -->
+    {hair_front_svg}
 
     <!-- LEFT EYE -->
     <g transform="translate({L['left_eye_x'] + eye_w},{L['eye_y']}) scale(-{eye_w},{eye_w})">

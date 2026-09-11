@@ -49,6 +49,63 @@ GENE_BASE = 120
 
 
 # =====================================================
+# CURVE HELPERS  (shared with TenderHair)
+# =====================================================
+
+def clamp_handles(handles, keypoints):
+    """Clamp each control point to the bounding box of its segment."""
+    out = []
+    for i, (c1, c2) in enumerate(handles):
+        x0, y0 = keypoints[i]
+        x1, y1 = keypoints[i + 1]
+        xlo, xhi = min(x0, x1), max(x0, x1)
+        ylo, yhi = min(y0, y1), max(y0, y1)
+        out.append((
+            (max(xlo, min(xhi, c1[0])), max(ylo, min(yhi, c1[1]))),
+            (max(xlo, min(xhi, c2[0])), max(ylo, min(yhi, c2[1]))),
+        ))
+    return out
+
+
+def catmull_rom_handles(pts, tension=0.40):
+    """
+    Convert a polyline to cubic bezier control points using Catmull-Rom.
+    Boundary ghosts use reflected endpoints so end tangents stay natural.
+    Returns list of (c1, c2) per segment (len = len(pts) - 1).
+    """
+    n = len(pts)
+    out = []
+    for i in range(n - 1):
+        p0 = pts[i]
+        p1 = pts[i + 1]
+        pm = pts[i - 1] if i > 0 else (2*p0[0] - p1[0], 2*p0[1] - p1[1])
+        pn = pts[i + 2] if i + 2 < n else (2*p1[0] - p0[0], 2*p1[1] - p0[1])
+        c1 = (p0[0] + (p1[0] - pm[0]) * tension,
+              p0[1] + (p1[1] - pm[1]) * tension)
+        c2 = (p1[0] - (pn[0] - p0[0]) * tension,
+              p1[1] - (pn[1] - p0[1]) * tension)
+        out.append((c1, c2))
+    return out
+
+
+def bezier_point(p0, c1, c2, p1, t):
+    """Evaluate a cubic bezier at parameter t."""
+    mt = 1.0 - t
+    a, b = mt * mt * mt, 3 * mt * mt * t
+    c, d = 3 * mt * t * t, t * t * t
+    return (a * p0[0] + b * c1[0] + c * c2[0] + d * p1[0],
+            a * p0[1] + b * c1[1] + c * c2[1] + d * p1[1])
+
+
+def path_from_handles(K, H, close=False):
+    """Serialise keypoints + Catmull-Rom handles into an SVG path string."""
+    d = f"M {K[0][0]:.2f} {K[0][1]:.2f} "
+    for (c1, c2), (kx, ky) in zip(H, K[1:]):
+        d += f"C {c1[0]:.2f} {c1[1]:.2f} {c2[0]:.2f} {c2[1]:.2f} {kx:.2f} {ky:.2f} "
+    return d + ("Z" if close else "")
+
+
+# =====================================================
 # MINIMAL HEAD GENOME
 # =====================================================
 
@@ -159,30 +216,30 @@ class MinimalHeadGenome:
             (cx + chin_floor_w, chin_y),
         ]
 
-        H = self._catmull_cp(K, tension=0.40)
+        H = catmull_rom_handles(K, tension=0.40)
 
         # Crown: force a horizontal tangent so the top of the skull is a dome
         # rather than a peak.
         H[0] = ((cx + fore_w * crown_arch, head_top), H[0][1])
 
         # Cheek approach / departure — controls round vs. angular cheekbones.
-        H_cheek = self._catmull_cp(K, tension=cheek_fullness)
+        H_cheek = catmull_rom_handles(K, tension=cheek_fullness)
         H[1] = H_cheek[1]
 
         # Jaw segments — sharper or softer jaw angle.
-        H_jaw = self._catmull_cp(K, tension=jaw_tension)
+        H_jaw = catmull_rom_handles(K, tension=jaw_tension)
         H[2] = H_jaw[2]   # cheek → jaw arrival
         H[3] = H_jaw[3]   # jaw → chin_body departure
 
         # Chin approach.
-        H_chin = self._catmull_cp(K, tension=0.25 + chin_curve * 0.30)
+        H_chin = catmull_rom_handles(K, tension=0.25 + chin_curve * 0.30)
         H[4] = H_chin[4]
 
         # Clamp handles to their segment bounding boxes — prevents bezier loops
         # where the path reverses direction (the cheek is an x-maximum, so its
         # tangent points inward and can otherwise push a handle outside the
         # silhouette).
-        H = self._clamp_handles(H, K)
+        H = clamp_handles(H, K)
 
         # Clamping can drop H[4]'s c2 onto K[5]'s x, which makes the outline
         # arrive at the chin floor vertically and reads as a hard corner.
@@ -212,15 +269,7 @@ class MinimalHeadGenome:
     # =====================================================
 
     @staticmethod
-    def _bezier_pt(p0, c1, c2, p1, t):
-        mt = 1.0 - t
-        a, b = mt * mt * mt, 3 * mt * mt * t
-        c, d = 3 * mt * t * t, t * t * t
-        return (a * p0[0] + b * c1[0] + c * c2[0] + d * p1[0],
-                a * p0[1] + b * c1[1] + c * c2[1] + d * p1[1])
-
-    @classmethod
-    def _build_profile(cls, K, H, steps=28):
+    def _build_profile(K, H, steps=28):
         """
         Sample the right-hand outline into a list of (x, y) with y ascending.
 
@@ -234,7 +283,7 @@ class MinimalHeadGenome:
             for s in range(steps + 1):
                 if i > 0 and s == 0:
                     continue            # skip the duplicated segment join
-                prof.append(cls._bezier_pt(p0, c1, c2, p1, s / steps))
+                prof.append(bezier_point(p0, c1, c2, p1, s / steps))
 
         out, ymax = [], prof[0][1]
         for x, y in prof:
@@ -272,46 +321,6 @@ class MinimalHeadGenome:
     def get_half_width(self):
         """Widest half-width of the head (at the cheekbone)."""
         return self.geometry()['max_hw']
-
-    # =====================================================
-    # CURVE HELPERS
-    # =====================================================
-
-    @staticmethod
-    def _clamp_handles(handles, keypoints):
-        """Clamp each control point to the bounding box of its segment."""
-        out = []
-        for i, (c1, c2) in enumerate(handles):
-            x0, y0 = keypoints[i]
-            x1, y1 = keypoints[i + 1]
-            xlo, xhi = min(x0, x1), max(x0, x1)
-            ylo, yhi = min(y0, y1), max(y0, y1)
-            out.append((
-                (max(xlo, min(xhi, c1[0])), max(ylo, min(yhi, c1[1]))),
-                (max(xlo, min(xhi, c2[0])), max(ylo, min(yhi, c2[1]))),
-            ))
-        return out
-
-    @staticmethod
-    def _catmull_cp(pts, tension=0.40):
-        """
-        Convert a polyline to cubic bezier control points using Catmull-Rom.
-        Boundary ghosts use reflected endpoints so end tangents stay natural.
-        Returns list of (c1, c2) per segment (len = len(pts) - 1).
-        """
-        n = len(pts)
-        out = []
-        for i in range(n - 1):
-            p0 = pts[i]
-            p1 = pts[i + 1]
-            pm = pts[i - 1] if i > 0 else (2*p0[0] - p1[0], 2*p0[1] - p1[1])
-            pn = pts[i + 2] if i + 2 < n else (2*p1[0] - p0[0], 2*p1[1] - p0[1])
-            c1 = (p0[0] + (p1[0] - pm[0]) * tension,
-                  p0[1] + (p1[1] - pm[1]) * tension)
-            c2 = (p1[0] - (pn[0] - p0[0]) * tension,
-                  p1[1] - (pn[1] - p0[1]) * tension)
-            out.append((c1, c2))
-        return out
 
     # =====================================================
     # GROUP GENERATION

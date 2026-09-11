@@ -45,6 +45,21 @@ class Genome:
 
         return val1 if dom1 >= dom2 else val2
 
+    def get_gene_low_dominant(self, index):
+        """
+        Returns the LOWER of the two alleles at `index`.
+
+        get_gene() decides between alleles with a random per-allele dominance
+        value, so which one shows is a coin flip.  Some traits instead have
+        one allele that always wins regardless: hair darkness is the textbook
+        case, where a single dark allele is enough to give dark hair.  Here
+        low gene values mean dark, so the lower allele is the dominant one.
+        """
+        if index < 0 or index >= self.num_genes:
+            raise IndexError("Gene index out of range")
+
+        return min(self.chromosome1[index][1], self.chromosome2[index][1])
+
     def get_gene_avg(self, index):
         """
         Returns the gene value at `index`.
